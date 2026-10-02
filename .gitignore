@@ -1,0 +1,26 @@
+# Python & Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Logs & Temporary Files
+*.log
+scratch/
+.system_generated/
+
+# OS & Editor Files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

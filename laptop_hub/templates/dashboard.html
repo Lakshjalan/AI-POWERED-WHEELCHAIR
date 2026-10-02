@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OcuSteer — Obsidian Vanguard Assistive Cockpit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body class="obsidian-body">
+
+  <!-- Top Studio Header -->
+  <header class="studio-header">
+    <div class="brand-pod">
+      <div class="brand-monogram">OV</div>
+      <div class="brand-copy">
+        <h1 class="brand-title">OcuSteer</h1>
+        <p class="brand-spec">OBSIDIAN VANGUARD • DUAL-MODAL ASSISTIVE COCKPIT</p>
+      </div>
+    </div>
+
+    <!-- Status Pill Cluster -->
+    <div class="header-pills">
+      <div class="pill-chip" id="chip-car-link">
+        <span class="pill-dot" id="dot-car-status"></span>
+        <span class="pill-key">ROVER</span>
+        <span class="pill-val font-mono" id="val-car-status">STANDBY</span>
+      </div>
+
+      <div class="pill-chip">
+        <span class="pill-dot dot-online"></span>
+        <span class="pill-key">AI TRACKER</span>
+        <span class="pill-val font-mono" id="val-ai-status">ACTIVE</span>
+      </div>
+
+      <div class="pill-chip">
+        <span class="pill-dot dot-online"></span>
+        <span class="pill-key">BIOSENSORS</span>
+        <span class="pill-val font-mono" id="val-sensor-status">SYNCED</span>
+      </div>
+
+      <div class="pill-chip clock-pill font-mono" id="hud-clock">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- Bento Grid Interface -->
+  <main class="bento-container">
+    
+    <!-- LEFT COLUMN: VIDEO FEEDS & PROXIMITY HUD -->
+    <div class="bento-column-left">
+
+      <!-- 1. Car FPV Bento Card -->
+      <section class="bento-pod fpv-pod">
+        <div class="pod-header">
+          <div class="pod-title-group">
+            <span class="pod-badge">ROVER FPV</span>
+            <h2 class="pod-heading">Autonomous Vehicle View</h2>
+          </div>
+          <span class="pill-tag font-mono" id="fpv-res-tag">640×360 • STREAM</span>
+        </div>
+
+        <div class="video-frame-container" id="car-video-wrap">
+          <img src="/video_feed/car" alt="Car FPV Feed" class="feed-img" id="img-car-stream">
+          
+          <!-- Obsidian Overlay -->
+          <div class="video-vignette"></div>
+          <div class="fpv-reticle">
+            <div class="reticle-cross"></div>
+            <div class="reticle-circle"></div>
+          </div>
+
+          <div class="alert-strip" id="obstacle-banner">
+            COLLISION SAFETY BRAKE ENGAGED (&lt; 30 CM)
+          </div>
+
+          <div class="fpv-bottom-bar">
+            <span class="pill-tag sub-pill" id="hud-car-mode">MODE: AUTONOMOUS EYE-GLANCE</span>
+            <span class="pill-tag sub-pill safe-pill" id="hud-dist-pill">RADAR: 95 CM</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Driver Biometric Bento Card with Native Webcam Support -->
+      <section class="bento-pod driver-pod">
+        <div class="pod-header">
+          <div class="pod-title-group">
+            <span class="pod-badge">BIOMETRIC TRACKING</span>
+            <h2 class="pod-heading">Driver Saccades &amp; Gaze</h2>
+          </div>
+          <div class="header-action-group">
+            <button class="pill-btn sub-pill-btn" id="btn-toggle-cam" title="Toggle between Browser Webcam and Neural Stream">
+              📹 SWITCH CAMERA
+            </button>
+            <span class="pill-tag font-mono" id="gaze-badge">CENTER</span>
+          </div>
+        </div>
+
+        <div class="driver-grid">
+          <div class="driver-feed-box">
+            <!-- Native Browser Video (for Fedora PipeWire/Wayland) -->
+            <video id="webcam-local" autoplay playsinline muted class="feed-video hidden"></video>
+            <!-- Backend MJPEG Stream -->
+            <img src="/video_feed/driver" alt="Driver Feed" class="feed-img" id="img-driver-stream">
+            <canvas id="faceOverlayCanvas" class="face-overlay-canvas"></canvas>
+            <div class="blink-badge font-mono" id="blink-flash">BLINK DETECTED</div>
+          </div>
+
+          <!-- Gestures List -->
+          <div class="gesture-column">
+            <div class="gesture-subpod" id="card-left-glance">
+              <div class="gesture-symbol">◄</div>
+              <div class="gesture-meta">
+                <span class="gesture-title">Left Glance</span>
+                <span class="gesture-desc">Nudge steer left</span>
+              </div>
+              <div class="gesture-dot"></div>
+            </div>
+
+            <div class="gesture-subpod" id="card-right-glance">
+              <div class="gesture-symbol">►</div>
+              <div class="gesture-meta">
+                <span class="gesture-title">Right Glance</span>
+                <span class="gesture-desc">Nudge steer right</span>
+              </div>
+              <div class="gesture-dot"></div>
+            </div>
+
+            <div class="gesture-subpod" id="card-clench-blink">
+              <div class="gesture-symbol">✦</div>
+              <div class="gesture-meta">
+                <span class="gesture-title">Jaw Clench / Blink</span>
+                <span class="gesture-desc">Toggle GO / STOP</span>
+              </div>
+              <div class="gesture-dot"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Propulsion State Bento Card -->
+      <section class="bento-pod propulsion-pod" id="drive-state-banner">
+        <div class="propulsion-icon-box" id="state-icon">■</div>
+        <div class="propulsion-copy">
+          <span class="propulsion-label">VEHICLE PROPULSION STATE</span>
+          <h3 class="propulsion-state" id="state-title">VEHICLE STOPPED</h3>
+        </div>
+        <div class="propulsion-dot" id="state-dot"></div>
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN: TELEMETRY, OSCILLOSCOPE & CONTROLS -->
+    <div class="bento-column-right">
+
+      <!-- 1. Biosignal Oscilloscope Pod -->
+      <section class="bento-pod scope-pod">
+        <div class="pod-header">
+          <div class="pod-title-group">
+            <span class="pod-badge">ELECTROPHYSIOLOGY</span>
+            <h2 class="pod-heading">Temple Biosignal Waves</h2>
+          </div>
+          <div class="scope-legend font-mono">
+            <span class="legend-pill eog-legend">EOG (A0)</span>
+            <span class="legend-pill piezo-legend">PIEZO (A1)</span>
+          </div>
+        </div>
+
+        <div class="oscilloscope-wrap">
+          <canvas id="scopeCanvas" width="600" height="210"></canvas>
+          <div class="scope-guidelines font-mono">
+            <span class="guideline upper">+120 SACCADE THRESH</span>
+            <span class="guideline center">512 BASELINE</span>
+            <span class="guideline lower">-120 SACCADE THRESH</span>
+          </div>
+        </div>
+
+        <div class="signal-readouts">
+          <div class="readout-box">
+            <span class="readout-label">EOG AMPLITUDE</span>
+            <span class="readout-val font-mono" id="txt-eog-val">512 ADC</span>
+            <div class="readout-bar-bg">
+              <div class="readout-bar-fill eog-fill" id="bar-eog"></div>
+            </div>
+          </div>
+          <div class="readout-box">
+            <span class="readout-label">PIEZO VIBRATION</span>
+            <span class="readout-val font-mono" id="txt-piezo-val">45 ADC</span>
+            <div class="readout-bar-bg">
+              <div class="readout-bar-fill piezo-fill" id="bar-piezo"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Proximity Radar Pod -->
+      <section class="bento-pod radar-pod">
+        <div class="pod-header">
+          <div class="pod-title-group">
+            <span class="pod-badge">COLLISION AVOIDANCE</span>
+            <h2 class="pod-heading">HC-SR04 Proximity Radar</h2>
+          </div>
+          <span class="pill-tag safe-tag" id="radar-safety-badge">PATH CLEAR</span>
+        </div>
+
+        <div class="radar-flex-row">
+          <div class="radar-disc-wrap">
+            <div class="radar-disc">
+              <div class="radar-sweep"></div>
+              <div class="radar-ring"></div>
+              <div class="radar-core"></div>
+            </div>
+          </div>
+          <div class="radar-data-stack">
+            <div class="data-row">
+              <span class="data-label">FRONT DISTANCE</span>
+              <span class="data-val font-mono" id="radar-cm-val">95 CM</span>
+            </div>
+            <div class="data-row">
+              <span class="data-label">AUTO-BRAKE THRESHOLD</span>
+              <span class="data-val font-mono">30 CM</span>
+            </div>
+            <div class="data-row">
+              <span class="data-label">SAFETY OVERRIDE</span>
+              <span class="data-val font-mono" id="radar-override-status">STANDBY</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="radar-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Manual Cockpit Dispatcher Pod -->
+      <section class="bento-pod controls-pod">
+        <div class="pod-header">
+          <div class="pod-title-group">
+            <span class="pod-badge">CONTROL INTERFACE</span>
+            <h2 class="pod-heading">Manual Override &amp; Log</h2>
+          </div>
+          <button class="pill-btn" id="btn-open-config">⚙️ CONFIG</button>
+        </div>
+
+        <div class="controls-grid">
+          <!-- D-Pad -->
+          <div class="dpad-cluster">
+            <button class="dpad-pill dpad-top" id="btn-cmd-f">▲ <span>FWD [W]</span></button>
+            <div class="dpad-mid-row">
+              <button class="dpad-pill dpad-side" id="btn-cmd-l">◄ <span>LEFT [A]</span></button>
+              <button class="dpad-pill dpad-brake" id="btn-cmd-s">■ <span>BRAKE [SPACE]</span></button>
+              <button class="dpad-pill dpad-side" id="btn-cmd-r"><span>RIGHT [D]</span> ►</button>
+            </div>
+            <button class="dpad-pill dpad-bottom" id="btn-cmd-b">▼ <span>REV [S]</span></button>
+          </div>
+
+          <!-- Command Stream -->
+          <div class="telemetry-log-pod">
+            <div class="log-heading font-mono">DISPATCH LOG</div>
+            <div class="log-stream font-mono" id="command-log-list">
+              <div class="log-line empty">Awaiting biopotential commands...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Obsidian Vanguard Settings Modal -->
+  <div class="modal-scrim" id="config-modal">
+    <div class="modal-pod">
+      <div class="modal-header">
+        <h2 class="modal-heading">System Parameters</h2>
+        <button class="pill-btn-close" id="btn-close-config">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label for="cfg-car-ip" class="field-label">Raspberry Pi Car IP Address</label>
+          <input type="text" id="cfg-car-ip" value="{{ config.car_ip }}" class="obsidian-input font-mono">
+        </div>
+        <div class="field-group">
+          <label for="cfg-car-port" class="field-label">Car Server Port</label>
+          <input type="number" id="cfg-car-port" value="{{ config.car_port }}" class="obsidian-input font-mono">
+        </div>
+        <div class="field-toggle-row">
+          <label class="switch-control">
+            <input type="checkbox" id="cfg-ai-enabled" {% if config.ai_autopilot_enabled %}checked{% endif %}>
+            <span class="switch-pill"></span>
+          </label>
+          <span class="toggle-text">Enable Vision AI Autopilot Steering</span>
+        </div>
+        <div class="field-toggle-row">
+          <label class="switch-control">
+            <input type="checkbox" id="cfg-clench-enabled" {% if config.clench_trigger_enabled %}checked{% endif %}>
+            <span class="switch-pill"></span>
+          </label>
+          <span class="toggle-text">Enable Piezo Jaw-Clench GO/STOP Toggle</span>
+        </div>
+        <div class="field-toggle-row">
+          <label class="switch-control">
+            <input type="checkbox" id="cfg-blink-enabled" {% if config.blink_trigger_enabled %}checked{% endif %}>
+            <span class="switch-pill"></span>
+          </label>
+          <span class="toggle-text">Enable Double-Blink GO/STOP Toggle</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="pill-btn-submit" id="btn-save-config">APPLY CONFIGURATION</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

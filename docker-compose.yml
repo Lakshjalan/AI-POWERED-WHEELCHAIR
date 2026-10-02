@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  ocusteer-hub:
+    build: .
+    container_name: ocusteer_hub
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+    # Optional: Forward hardware devices (webcam or Arduino serial) when attached
+    # devices:
+    #   - "/dev/video0:/dev/video0"
+    #   - "/dev/ttyACM0:/dev/ttyACM0"

@@ -1,0 +1,989 @@
+/* ==========================================================================
+   Obsidian Vanguard — Design System & Stylesheet
+   Monochromatic dark studio interface with sweeping rounded bento pods (#201f1f),
+   white hero typography (Libre Caslon Text), crisp sans-serif data (Geist),
+   and glassmorphic pill controls.
+   ========================================================================== */
+
+:root {
+  /* Obsidian Vanguard Palette */
+  --bg-color: #131313;
+  --surface: #131313;
+  --surface-dim: #131313;
+  --surface-bright: #3a3939;
+  --surface-container-lowest: #0e0e0e;
+  --surface-container-low: #1c1b1b;
+  --surface-container: #201f1f;
+  --surface-container-high: #2a2a2a;
+  --surface-container-highest: #353534;
+
+  --on-surface: #e5e2e1;
+  --on-surface-variant: #c4c7c8;
+  --outline: #8e9192;
+  --outline-variant: #444748;
+
+  --primary: #ffffff;
+  --on-primary: #2f3131;
+  --secondary: #c7c6c6;
+
+  --error: #ffb4ab;
+  --error-container: #93000a;
+
+  --accent-glow: rgba(255, 255, 255, 0.08);
+
+  /* Typography */
+  --font-serif: 'Libre Caslon Text', Georgia, serif;
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Shapes & Radii */
+  --radius-bento: 32px;
+  --radius-subcard: 20px;
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-bento: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body.obsidian-body {
+  background-color: var(--bg-color);
+  color: var(--on-surface);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  padding-bottom: 40px;
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Header */
+.studio-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 40px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--surface-container-high);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.brand-pod {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.brand-monogram {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-container-highest);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: 1px solid var(--outline-variant);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.brand-title {
+  font-family: var(--font-serif);
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.brand-spec {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--on-surface-variant);
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.header-pills {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pill-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-pill);
+  padding: 8px 18px;
+  font-size: 0.78rem;
+}
+
+.pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--outline);
+}
+
+.pill-dot.dot-online {
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+}
+
+.pill-key {
+  color: var(--on-surface-variant);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.pill-val {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.clock-pill {
+  color: var(--primary);
+  border-color: var(--outline);
+  background: var(--surface-container);
+}
+
+/* Bento Grid Container */
+.bento-container {
+  display: grid;
+  grid-template-columns: 1.18fr 0.82fr;
+  gap: 28px;
+  padding: 32px 40px;
+  max-width: 1720px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1240px) {
+  .bento-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Bento Pods */
+.bento-pod {
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-bento);
+  padding: 26px;
+  margin-bottom: 28px;
+  box-shadow: var(--shadow-bento);
+  transition: border-color 0.25s ease, transform 0.2s ease;
+}
+
+.bento-pod:hover {
+  border-color: var(--outline);
+}
+
+.pod-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--surface-container-high);
+}
+
+.pod-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pod-badge {
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pod-heading {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: -0.01em;
+}
+
+.pill-tag {
+  background: var(--surface-container-high);
+  border: 1px solid var(--outline-variant);
+  color: var(--primary);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.header-action-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sub-pill-btn {
+  background: var(--surface-container-highest) !important;
+  color: var(--primary) !important;
+  border: 1px solid var(--outline-variant) !important;
+  font-size: 0.72rem !important;
+  padding: 6px 14px !important;
+  cursor: pointer;
+}
+
+.sub-pill-btn:hover {
+  border-color: var(--primary) !important;
+}
+
+/* 1. Car FPV Pod */
+.video-frame-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius-subcard);
+  overflow: hidden;
+  border: 1px solid var(--outline-variant);
+}
+
+.feed-img, .feed-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.feed-video.hidden {
+  display: none;
+}
+
+.video-vignette {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+.fpv-reticle {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50px;
+  height: 50px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.reticle-circle {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--primary);
+  border-radius: 50%;
+  margin: 11px auto;
+}
+
+.reticle-cross {
+  position: absolute;
+  top: 25px; left: 0;
+  width: 50px; height: 1px;
+  background: var(--primary);
+}
+
+.alert-strip {
+  display: none;
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--error-container);
+  color: var(--error);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--error);
+  box-shadow: 0 4px 20px rgba(147, 0, 10, 0.6);
+}
+
+.fpv-bottom-bar {
+  position: absolute;
+  bottom: 12px; left: 16px; right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.sub-pill {
+  background: rgba(14, 14, 14, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+.safe-pill {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.danger-pill {
+  background: var(--error-container) !important;
+  color: var(--error) !important;
+  border-color: var(--error) !important;
+}
+
+/* 2. Driver Biometric Pod */
+.driver-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 20px;
+}
+
+.driver-feed-box {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius-subcard);
+  overflow: hidden;
+  border: 1px solid var(--outline-variant);
+}
+
+.face-overlay-canvas {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+.blink-badge {
+  display: none;
+  position: absolute;
+  top: 14px; right: 14px;
+  background: #ffffff;
+  color: #131313;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.6);
+}
+
+.gesture-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+}
+
+.gesture-subpod {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  transition: all 0.2s ease;
+}
+
+.gesture-subpod.active {
+  background: var(--surface-bright);
+  border-color: var(--primary);
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+  transform: translateX(4px);
+}
+
+.gesture-symbol {
+  font-size: 1.2rem;
+  color: var(--primary);
+  margin-right: 14px;
+}
+
+.gesture-meta {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.gesture-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.gesture-desc {
+  font-size: 0.72rem;
+  color: var(--on-surface-variant);
+}
+
+.gesture-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--outline-variant);
+  transition: background-color 0.15s ease;
+}
+
+.gesture-subpod.active .gesture-dot {
+  background: var(--primary);
+  box-shadow: 0 0 10px #ffffff;
+}
+
+/* 3. Propulsion State Pod */
+.propulsion-pod {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 30px;
+  background: var(--surface-container-high);
+}
+
+.propulsion-pod.active-moving {
+  border-color: var(--primary);
+  background: var(--surface-bright);
+  box-shadow: 0 8px 30px rgba(255, 255, 255, 0.12);
+}
+
+.propulsion-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-container-highest);
+  border: 1px solid var(--outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: var(--primary);
+}
+
+.propulsion-copy {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.propulsion-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  color: var(--on-surface-variant);
+  font-weight: 700;
+}
+
+.propulsion-state {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: -0.01em;
+}
+
+.propulsion-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--outline-variant);
+}
+
+.propulsion-pod.active-moving .propulsion-dot {
+  background: var(--primary);
+  box-shadow: 0 0 12px #ffffff;
+}
+
+/* RIGHT COLUMN: OSCILLOSCOPE, RADAR & CONTROLS */
+.oscilloscope-wrap {
+  position: relative;
+  width: 100%;
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius-subcard);
+  overflow: hidden;
+  border: 1px solid var(--outline-variant);
+}
+
+#scopeCanvas {
+  display: block;
+  width: 100%;
+  height: 195px;
+}
+
+.scope-guidelines {
+  position: absolute;
+  top: 10px; bottom: 10px; left: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.guideline {
+  font-size: 0.6rem;
+  color: var(--outline);
+}
+
+.scope-legend {
+  display: flex;
+  gap: 10px;
+}
+
+.legend-pill {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+.eog-legend { background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.4); color: #fff; }
+.piezo-legend { background: rgba(199, 198, 198, 0.1); border: 1px solid var(--outline); color: var(--secondary); }
+
+.signal-readouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.readout-box {
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  padding: 14px 18px;
+}
+
+.readout-label {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: var(--on-surface-variant);
+  font-weight: 600;
+}
+
+.readout-val {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin: 4px 0 8px 0;
+}
+
+.readout-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: var(--surface-container-highest);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.readout-bar-fill {
+  height: 100%;
+  width: 50%;
+  background: var(--primary);
+  border-radius: var(--radius-pill);
+  transition: width 0.08s ease;
+}
+
+/* Proximity Radar */
+.radar-flex-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 22px;
+  align-items: center;
+}
+
+.radar-disc-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.radar-disc {
+  width: 105px;
+  height: 105px;
+  border-radius: 50%;
+  border: 1px solid var(--outline);
+  position: relative;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, transparent 75%);
+  overflow: hidden;
+}
+
+.radar-sweep {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 52px; height: 52px;
+  transform-origin: 0 0;
+  background: conic-gradient(from 0deg, rgba(255, 255, 255, 0.4) 0deg, transparent 60deg);
+  animation: radar-sweep 2.2s linear infinite;
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.radar-ring {
+  position: absolute;
+  top: 26px; left: 26px;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 1px dashed var(--outline-variant);
+}
+
+.radar-core {
+  position: absolute;
+  top: 50px; left: 50px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 8px #ffffff;
+}
+
+.radar-data-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.data-label { color: var(--on-surface-variant); font-weight: 500; }
+.data-val { color: var(--primary); font-weight: 700; }
+
+.safe-tag {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.warn-tag {
+  background: var(--error-container) !important;
+  color: var(--error) !important;
+  border-color: var(--error) !important;
+}
+
+.progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-container-highest);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 75%;
+  background: #ffffff;
+  border-radius: var(--radius-pill);
+  transition: width 0.1s ease, background-color 0.2s ease;
+}
+
+/* Controls Pod */
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.dpad-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.dpad-mid-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
+.dpad-pill {
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  color: var(--primary);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  padding: 10px 18px;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.dpad-pill span {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--on-surface-variant);
+  font-family: var(--font-mono);
+}
+
+.dpad-pill:hover {
+  background: var(--surface-bright);
+  border-color: var(--primary);
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
+}
+
+.dpad-pill:active {
+  transform: scale(0.96);
+}
+
+.dpad-top, .dpad-bottom {
+  width: 120px;
+}
+
+.dpad-side {
+  flex: 1;
+}
+
+.dpad-brake {
+  flex: 1.15;
+  background: var(--surface-container-highest);
+  border-color: var(--outline);
+}
+
+.dpad-brake:hover {
+  background: var(--error-container);
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.telemetry-log-pod {
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-heading {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  border-bottom: 1px solid var(--surface-container-high);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.log-stream {
+  flex-grow: 1;
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.72rem;
+}
+
+.log-line {
+  padding: 4px 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.log-line.empty {
+  color: var(--outline);
+  font-style: italic;
+}
+
+.log-time { color: var(--on-surface-variant); margin-right: 6px; }
+.log-cmd { color: #ffffff; font-weight: 700; margin-right: 6px; }
+.log-source { color: var(--outline); }
+
+/* Buttons */
+.pill-btn {
+  background: var(--surface-container-high);
+  border: 1px solid var(--outline-variant);
+  color: var(--primary);
+  border-radius: var(--radius-pill);
+  padding: 7px 18px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pill-btn:hover {
+  border-color: var(--primary);
+  background: var(--surface-bright);
+}
+
+/* Modal */
+.modal-scrim {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-scrim.open {
+  display: flex;
+}
+
+.modal-pod {
+  width: 90%;
+  max-width: 500px;
+  background: var(--surface-container);
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-bento);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
+  padding: 28px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--surface-container-high);
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+}
+
+.modal-heading {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  color: var(--primary);
+}
+
+.pill-btn-close {
+  background: var(--surface-container-high);
+  border: 1px solid var(--outline-variant);
+  color: var(--on-surface-variant);
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.pill-btn-close:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.field-group {
+  margin-bottom: 16px;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--on-surface-variant);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.obsidian-input {
+  width: 100%;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-pill);
+  padding: 10px 18px;
+  color: var(--primary);
+  font-size: 0.85rem;
+}
+
+.obsidian-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.field-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.switch-control {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch-control input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-pill {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: var(--surface-container-highest);
+  border-radius: var(--radius-pill);
+  transition: 0.25s;
+  border: 1px solid var(--outline-variant);
+}
+
+.switch-pill:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--secondary);
+  border-radius: 50%;
+  transition: 0.25s;
+}
+
+input:checked + .switch-pill {
+  background-color: #ffffff;
+}
+
+input:checked + .switch-pill:before {
+  transform: translateX(20px);
+  background-color: #131313;
+}
+
+.toggle-text {
+  font-size: 0.82rem;
+  color: var(--on-surface);
+}
+
+.pill-btn-submit {
+  width: 100%;
+  background: var(--primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 12px;
+  color: var(--on-primary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 10px;
+}
+
+.pill-btn-submit:hover {
+  background: #eaeaea;
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
+}

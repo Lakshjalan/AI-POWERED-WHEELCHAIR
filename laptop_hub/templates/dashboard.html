@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OcuSteer — Obsidian Vanguard Assistive Cockpit</title>
+  <title>OcuSteer — Obsidian Vanguard Dual-Modal Assistive Cockpit</title>
+  <meta name="description" content="OcuSteer: AI-powered eye-gaze and biopotential assistive wheelchair cockpit with real-time FPV telemetry.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -17,7 +18,7 @@
       <div class="brand-monogram">OV</div>
       <div class="brand-copy">
         <h1 class="brand-title">OcuSteer</h1>
-        <p class="brand-spec">OBSIDIAN VANGUARD • DUAL-MODAL ASSISTIVE COCKPIT</p>
+        <p class="brand-spec">OBSIDIAN VANGUARD &bull; DUAL-MODAL ASSISTIVE COCKPIT</p>
       </div>
     </div>
 
@@ -28,136 +29,149 @@
         <span class="pill-key">ROVER</span>
         <span class="pill-val font-mono" id="val-car-status">STANDBY</span>
       </div>
-
       <div class="pill-chip">
         <span class="pill-dot dot-online"></span>
         <span class="pill-key">AI TRACKER</span>
         <span class="pill-val font-mono" id="val-ai-status">ACTIVE</span>
       </div>
-
       <div class="pill-chip">
         <span class="pill-dot dot-online"></span>
         <span class="pill-key">BIOSENSORS</span>
         <span class="pill-val font-mono" id="val-sensor-status">SYNCED</span>
       </div>
-
       <div class="pill-chip clock-pill font-mono" id="hud-clock">00:00:00</div>
     </div>
   </header>
 
-  <!-- Bento Grid Interface -->
-  <main class="bento-container">
-    
-    <!-- LEFT COLUMN: VIDEO FEEDS & PROXIMITY HUD -->
-    <div class="bento-column-left">
+  <!-- Main Cockpit Layout: 12-column grid -->
+  <main class="cockpit-grid">
 
-      <!-- 1. Car FPV Bento Card -->
-      <section class="bento-pod fpv-pod">
+    <!-- LEFT PRIMARY VIEW: 8 cols — Rover FPV + Embedded Face-Cam PIP -->
+    <section class="cockpit-primary">
+      <div class="bento-pod fpv-pod">
+
+        <!-- Pod Header Strip -->
         <div class="pod-header">
           <div class="pod-title-group">
-            <span class="pod-badge">ROVER FPV</span>
+            <span class="pod-badge">Rover FPV Telepresence</span>
             <h2 class="pod-heading">Autonomous Vehicle View</h2>
           </div>
-          <span class="pill-tag font-mono" id="fpv-res-tag">640×360 • STREAM</span>
+          <div class="header-action-group">
+            <span class="pill-tag font-mono" id="fpv-res-tag">640&times;360 &bull; STREAM</span>
+            <span class="pill-tag font-mono fpv-quality-tag">HD LOW-LATENCY</span>
+            <button class="pill-btn maximize-btn" id="btn-maximize-stream" title="Maximize live stream">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              MAXIMIZE
+            </button>
+          </div>
         </div>
 
+        <!-- Live Stream Frame + HUD Overlays -->
         <div class="video-frame-container" id="car-video-wrap">
           <img src="/video_feed/car" alt="Car FPV Feed" class="feed-img" id="img-car-stream">
-          
-          <!-- Obsidian Overlay -->
           <div class="video-vignette"></div>
-          <div class="fpv-reticle">
-            <div class="reticle-cross"></div>
-            <div class="reticle-circle"></div>
+
+          <!-- Theater mode exit button (only visible when maximized) -->
+          <button class="theater-exit-btn font-mono" id="btn-exit-theater" title="Exit maximize (Esc)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="10" y1="14" x2="3" y2="21"></line><line x1="21" y1="3" x2="14" y2="10"></line></svg>
+            EXIT
+          </button>
+
+          <!-- Artificial Horizon Pitch Ladder -->
+          <div class="pitch-ladder">
+            <div class="pitch-line pitch-neg"><span>-10</span><span>-10</span></div>
+            <div class="pitch-line pitch-zero"><span>00</span><span>00</span></div>
+            <div class="pitch-line pitch-pos"><span>+10</span><span>+10</span></div>
           </div>
 
+          <!-- Crosshair Reticle -->
+          <div class="fpv-reticle reticle-pulse">
+            <div class="reticle-outer"></div>
+            <div class="reticle-inner"></div>
+            <div class="reticle-dot"></div>
+            <div class="reticle-cross-h"></div>
+            <div class="reticle-cross-v"></div>
+          </div>
+
+          <!-- Top-Left HUD text -->
+          <div class="fpv-hud-topbar">
+            <span class="hud-live-dot"></span>
+            <span class="hud-subtext font-mono">
+              <em class="hud-em" id="hud-car-state-text">TURNING LEFT</em>
+              &nbsp;|&nbsp; RADAR: <em class="hud-em hud-em-warn" id="hud-radar-text">95 CM</em>
+            </span>
+          </div>
+
+          <!-- Obstacle Alert -->
           <div class="alert-strip" id="obstacle-banner">
             COLLISION SAFETY BRAKE ENGAGED (&lt; 30 CM)
           </div>
 
+          <!-- EMBEDDED DRIVER FACE-CAM PIP: top-right corner -->
+          <div class="pip-overlay" id="pip-overlay">
+            <div class="pip-topbar">
+              <div class="pip-brand">
+                <span class="pip-dot"></span>
+                <span class="pip-title font-mono">DRIVER CAM</span>
+              </div>
+              <span class="pip-gaze-tag font-mono" id="pip-gaze-label">CENTER</span>
+            </div>
+            <div class="pip-video-box">
+              <img src="/video_feed/driver" alt="Driver Gaze" class="pip-feed-img" id="pip-driver-stream">
+              <video id="webcam-local" autoplay playsinline muted class="pip-feed-video hidden"></video>
+              <canvas id="faceOverlayCanvas" class="face-overlay-canvas"></canvas>
+              <div class="blink-badge font-mono" id="blink-flash">BLINK</div>
+              <div class="pip-hud-layer">
+                <div class="pip-gaze-readout">
+                  <span class="font-mono pip-gaze-text" id="pip-gaze-readout">CENTER</span>
+                </div>
+                <div class="pip-bottom-row">
+                  <button class="pip-cam-btn font-mono" id="btn-toggle-cam">&#x21BA; CAM</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- END PIP -->
+
+          <!-- Bottom HUD Bar -->
           <div class="fpv-bottom-bar">
-            <span class="pill-tag sub-pill" id="hud-car-mode">MODE: AUTONOMOUS EYE-GLANCE</span>
-            <span class="pill-tag sub-pill safe-pill" id="hud-dist-pill">RADAR: 95 CM</span>
+            <span class="pill-tag sub-pill safe-pill font-mono" id="hud-dist-pill">RADAR: 95 CM</span>
           </div>
         </div>
-      </section>
 
-      <!-- 2. Driver Biometric Bento Card with Native Webcam Support -->
-      <section class="bento-pod driver-pod">
+        <!-- Vehicle Propulsion State Strip -->
+        <div class="propulsion-strip" id="drive-state-banner">
+          <div class="propulsion-icon-box" id="state-icon">&#9632;</div>
+          <h3 class="propulsion-state" id="state-title">STOPPED</h3>
+          <div class="gesture-quick-row">
+            <div class="gq-pill gq-active" id="gq-left">
+              <span class="gq-dot"></span>
+              <span class="font-mono">LEFT</span>
+            </div>
+            <div class="gq-pill" id="gq-right">
+              <span class="gq-dot gq-dot-inactive"></span>
+              <span class="font-mono">RIGHT</span>
+            </div>
+            <div class="gq-pill" id="gq-clench">
+              <span class="gq-dot gq-dot-inactive"></span>
+              <span class="font-mono">BRAKE</span>
+            </div>
+          </div>
+          <div class="propulsion-dot" id="state-dot"></div>
+        </div>
+
+      </div>
+    </section>
+    <!-- END LEFT PRIMARY VIEW -->
+
+    <!-- RIGHT SECONDARY PANELS: 4 cols -->
+    <section class="cockpit-secondary">
+
+      <!-- Card 1: Temple Biosignal Waves -->
+      <div class="bento-pod scope-pod" data-purpose="compact-biosignal-card">
         <div class="pod-header">
           <div class="pod-title-group">
-            <span class="pod-badge">BIOMETRIC TRACKING</span>
-            <h2 class="pod-heading">Driver Saccades &amp; Gaze</h2>
-          </div>
-          <div class="header-action-group">
-            <button class="pill-btn sub-pill-btn" id="btn-toggle-cam" title="Toggle between Browser Webcam and Neural Stream">
-              📹 SWITCH CAMERA
-            </button>
-            <span class="pill-tag font-mono" id="gaze-badge">CENTER</span>
-          </div>
-        </div>
-
-        <div class="driver-grid">
-          <div class="driver-feed-box">
-            <!-- Native Browser Video (for Fedora PipeWire/Wayland) -->
-            <video id="webcam-local" autoplay playsinline muted class="feed-video hidden"></video>
-            <!-- Backend MJPEG Stream -->
-            <img src="/video_feed/driver" alt="Driver Feed" class="feed-img" id="img-driver-stream">
-            <canvas id="faceOverlayCanvas" class="face-overlay-canvas"></canvas>
-            <div class="blink-badge font-mono" id="blink-flash">BLINK DETECTED</div>
-          </div>
-
-          <!-- Gestures List -->
-          <div class="gesture-column">
-            <div class="gesture-subpod" id="card-left-glance">
-              <div class="gesture-symbol">◄</div>
-              <div class="gesture-meta">
-                <span class="gesture-title">Left Glance</span>
-                <span class="gesture-desc">Nudge steer left</span>
-              </div>
-              <div class="gesture-dot"></div>
-            </div>
-
-            <div class="gesture-subpod" id="card-right-glance">
-              <div class="gesture-symbol">►</div>
-              <div class="gesture-meta">
-                <span class="gesture-title">Right Glance</span>
-                <span class="gesture-desc">Nudge steer right</span>
-              </div>
-              <div class="gesture-dot"></div>
-            </div>
-
-            <div class="gesture-subpod" id="card-clench-blink">
-              <div class="gesture-symbol">✦</div>
-              <div class="gesture-meta">
-                <span class="gesture-title">Jaw Clench / Blink</span>
-                <span class="gesture-desc">Toggle GO / STOP</span>
-              </div>
-              <div class="gesture-dot"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 3. Propulsion State Bento Card -->
-      <section class="bento-pod propulsion-pod" id="drive-state-banner">
-        <div class="propulsion-icon-box" id="state-icon">■</div>
-        <div class="propulsion-copy">
-          <span class="propulsion-label">VEHICLE PROPULSION STATE</span>
-          <h3 class="propulsion-state" id="state-title">VEHICLE STOPPED</h3>
-        </div>
-        <div class="propulsion-dot" id="state-dot"></div>
-      </section>
-    </div>
-
-    <!-- RIGHT COLUMN: TELEMETRY, OSCILLOSCOPE & CONTROLS -->
-    <div class="bento-column-right">
-
-      <!-- 1. Biosignal Oscilloscope Pod -->
-      <section class="bento-pod scope-pod">
-        <div class="pod-header">
-          <div class="pod-title-group">
-            <span class="pod-badge">ELECTROPHYSIOLOGY</span>
+            <span class="pod-badge">Electrophysiology</span>
             <h2 class="pod-heading">Temple Biosignal Waves</h2>
           </div>
           <div class="scope-legend font-mono">
@@ -165,16 +179,14 @@
             <span class="legend-pill piezo-legend">PIEZO (A1)</span>
           </div>
         </div>
-
         <div class="oscilloscope-wrap">
-          <canvas id="scopeCanvas" width="600" height="210"></canvas>
+          <canvas id="scopeCanvas" width="600" height="120"></canvas>
           <div class="scope-guidelines font-mono">
             <span class="guideline upper">+120 SACCADE THRESH</span>
             <span class="guideline center">512 BASELINE</span>
             <span class="guideline lower">-120 SACCADE THRESH</span>
           </div>
         </div>
-
         <div class="signal-readouts">
           <div class="readout-box">
             <span class="readout-label">EOG AMPLITUDE</span>
@@ -191,18 +203,17 @@
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- 2. Proximity Radar Pod -->
-      <section class="bento-pod radar-pod">
+      <!-- Card 2: HC-SR04 Proximity Radar -->
+      <div class="bento-pod radar-pod" data-purpose="compact-radar-card">
         <div class="pod-header">
           <div class="pod-title-group">
-            <span class="pod-badge">COLLISION AVOIDANCE</span>
+            <span class="pod-badge">Collision Avoidance</span>
             <h2 class="pod-heading">HC-SR04 Proximity Radar</h2>
           </div>
           <span class="pill-tag safe-tag" id="radar-safety-badge">PATH CLEAR</span>
         </div>
-
         <div class="radar-flex-row">
           <div class="radar-disc-wrap">
             <div class="radar-disc">
@@ -229,31 +240,28 @@
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- 3. Manual Cockpit Dispatcher Pod -->
-      <section class="bento-pod controls-pod">
+      <!-- Card 3: Manual Override & Log -->
+      <div class="bento-pod controls-pod" data-purpose="override-and-log">
         <div class="pod-header">
           <div class="pod-title-group">
-            <span class="pod-badge">CONTROL INTERFACE</span>
+            <span class="pod-badge">Control Interface</span>
             <h2 class="pod-heading">Manual Override &amp; Log</h2>
           </div>
-          <button class="pill-btn" id="btn-open-config">⚙️ CONFIG</button>
+          <button class="pill-btn" id="btn-open-config">&#x2699;&#xFE0F; CONFIG</button>
         </div>
 
         <div class="controls-grid">
-          <!-- D-Pad -->
           <div class="dpad-cluster">
-            <button class="dpad-pill dpad-top" id="btn-cmd-f">▲ <span>FWD [W]</span></button>
+            <button class="dpad-pill dpad-top" id="btn-cmd-f">&#9650; <span>FWD [W]</span></button>
             <div class="dpad-mid-row">
-              <button class="dpad-pill dpad-side" id="btn-cmd-l">◄ <span>LEFT [A]</span></button>
-              <button class="dpad-pill dpad-brake" id="btn-cmd-s">■ <span>BRAKE [SPACE]</span></button>
-              <button class="dpad-pill dpad-side" id="btn-cmd-r"><span>RIGHT [D]</span> ►</button>
+              <button class="dpad-pill dpad-side" id="btn-cmd-l">&#9664; <span>LEFT [A]</span></button>
+              <button class="dpad-pill dpad-brake" id="btn-cmd-s">&#9632; <span>BRAKE [SPACE]</span></button>
+              <button class="dpad-pill dpad-side" id="btn-cmd-r"><span>RIGHT [D]</span> &#9654;</button>
             </div>
-            <button class="dpad-pill dpad-bottom" id="btn-cmd-b">▼ <span>REV [S]</span></button>
+            <button class="dpad-pill dpad-bottom" id="btn-cmd-b">&#9660; <span>REV [S]</span></button>
           </div>
-
-          <!-- Command Stream -->
           <div class="telemetry-log-pod">
             <div class="log-heading font-mono">DISPATCH LOG</div>
             <div class="log-stream font-mono" id="command-log-list">
@@ -261,17 +269,46 @@
             </div>
           </div>
         </div>
-      </section>
 
-    </div>
+        <div class="gesture-column" style="margin-top: 16px;">
+          <div class="gesture-subpod" id="card-left-glance">
+            <div class="gesture-symbol">&#9668;</div>
+            <div class="gesture-meta">
+              <span class="gesture-title">Left Glance</span>
+              <span class="gesture-desc">Nudge steer left</span>
+            </div>
+            <div class="gesture-dot"></div>
+          </div>
+          <div class="gesture-subpod" id="card-right-glance">
+            <div class="gesture-symbol">&#9658;</div>
+            <div class="gesture-meta">
+              <span class="gesture-title">Right Glance</span>
+              <span class="gesture-desc">Nudge steer right</span>
+            </div>
+            <div class="gesture-dot"></div>
+          </div>
+          <div class="gesture-subpod" id="card-clench-blink">
+            <div class="gesture-symbol">&#10022;</div>
+            <div class="gesture-meta">
+              <span class="gesture-title">Jaw Clench / Blink</span>
+              <span class="gesture-desc">Toggle GO / STOP</span>
+            </div>
+            <div class="gesture-dot"></div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+    <!-- END RIGHT SECONDARY PANELS -->
+
   </main>
 
-  <!-- Obsidian Vanguard Settings Modal -->
+  <!-- Config Modal -->
   <div class="modal-scrim" id="config-modal">
     <div class="modal-pod">
       <div class="modal-header">
         <h2 class="modal-heading">System Parameters</h2>
-        <button class="pill-btn-close" id="btn-close-config">✕</button>
+        <button class="pill-btn-close" id="btn-close-config">&#x2715;</button>
       </div>
       <div class="modal-body">
         <div class="field-group">

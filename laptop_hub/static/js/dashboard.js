@@ -17,6 +17,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const cardClench = document.getElementById("card-clench-blink");
   const blinkFlash = document.getElementById("blink-flash");
 
+  // PIP Overlay elements
+  const pipGazeLabel = document.getElementById("pip-gaze-label");
+  const pipGazeReadout = document.getElementById("pip-gaze-readout");
+  const pipGazeConf = document.getElementById("pip-gaze-conf");
+
+  // Quick gesture strip pills
+  const gqLeft = document.getElementById("gq-left");
+  const gqRight = document.getElementById("gq-right");
+  const gqClench = document.getElementById("gq-clench");
+
   // State Banner
   const driveStateBanner = document.getElementById("drive-state-banner");
   const stateTitle = document.getElementById("state-title");
@@ -44,7 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Local Webcam Toggle
   const btnToggleCam = document.getElementById("btn-toggle-cam");
   const videoLocal = document.getElementById("webcam-local");
-  const imgDriverStream = document.getElementById("img-driver-stream");
+  const pipDriverStream = document.getElementById("pip-driver-stream");
   const faceOverlayCanvas = document.getElementById("faceOverlayCanvas");
   const faceOverlayCtx = faceOverlayCanvas.getContext("2d");
 
@@ -188,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Gaze State
     const gaze = data.current_gaze || "CENTER";
-    gazeBadge.textContent = gaze;
+    if (gazeBadge) gazeBadge.textContent = gaze;
 
     cardLeft.classList.toggle("active", gaze === "LEFT");
     cardRight.classList.toggle("active", gaze === "RIGHT");
@@ -196,9 +206,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
     blinkFlash.style.display = data.blink_active ? "block" : "none";
 
+    // PIP overlay gaze sync
+    if (pipGazeLabel) pipGazeLabel.textContent = gaze;
+    if (pipGazeReadout) pipGazeReadout.textContent = gaze;
+
+    // Quick gesture strip highlights
+    if (gqLeft) gqLeft.classList.toggle("gq-active", gaze === "LEFT");
+    if (gqRight) gqRight.classList.toggle("gq-active", gaze === "RIGHT");
+    if (gqClench) gqClench.classList.toggle("gq-active", !!(data.clench_active || data.blink_active));
+
+    // Update HUD state text and propulsion strip
+    const hudStateText = document.getElementById("hud-car-state-text");
+    const hudRadarText = document.getElementById("hud-radar-text");
+    const propStrip = document.getElementById("drive-state-banner");
+    if (hudStateText) hudStateText.textContent = data.car_state || "STOPPED";
+    if (hudRadarText) hudRadarText.textContent = `${data.ultrasonic_distance || 99} CM`;
+    if (propStrip) {
+      propStrip.classList.toggle("active-moving",
+        !!(data.car_state && data.car_state !== "STOP" && data.car_state !== "STOPPED"));
+    }
+
     // Propulsion Banner
     const state = data.car_state || "STOP";
-    stateTitle.textContent = `VEHICLE ${state}`;
+    const stateWord = state === "STOP" ? "STOPPED" :
+      state === "FORWARD" ? "FORWARD" :
+      state.includes("LEFT") ? "LEFT" :
+      state.includes("RIGHT") ? "RIGHT" :
+      state === "REVERSE" ? "REVERSE" : state;
+    stateTitle.textContent = stateWord;
 
     driveStateBanner.classList.remove("active-moving");
     if (state === "FORWARD") {
@@ -268,31 +303,33 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 5. Native Browser Webcam Integration (For Fedora PipeWire / Wayland)
-  btnToggleCam.addEventListener("click", async () => {
-    if (!usingLocalWebcam) {
-      try {
-        localMediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }
-        });
-        videoLocal.srcObject = localMediaStream;
-        videoLocal.classList.remove("hidden");
-        imgDriverStream.style.display = "none";
-        usingLocalWebcam = true;
-        btnToggleCam.textContent = "📹 SWITCH TO NEURAL FEED";
-        startBrowserEyeTracking();
-      } catch (err) {
-        alert("Could not access browser webcam: " + err.message);
+  if (btnToggleCam) {
+    btnToggleCam.addEventListener("click", async () => {
+      if (!usingLocalWebcam) {
+        try {
+          localMediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }
+          });
+          videoLocal.srcObject = localMediaStream;
+          videoLocal.classList.remove("hidden");
+          if (pipDriverStream) pipDriverStream.style.display = "none";
+          usingLocalWebcam = true;
+          btnToggleCam.textContent = "\u21BA NEURAL";
+          startBrowserEyeTracking();
+        } catch (err) {
+          alert("Could not access browser webcam: " + err.message);
+        }
+      } else {
+        if (localMediaStream) {
+          localMediaStream.getTracks().forEach(track => track.stop());
+        }
+        videoLocal.classList.add("hidden");
+        if (pipDriverStream) pipDriverStream.style.display = "block";
+        usingLocalWebcam = false;
+        btnToggleCam.textContent = "\u21BA CAM";
       }
-    } else {
-      if (localMediaStream) {
-        localMediaStream.getTracks().forEach(track => track.stop());
-      }
-      videoLocal.classList.add("hidden");
-      imgDriverStream.style.display = "block";
-      usingLocalWebcam = false;
-      btnToggleCam.textContent = "📹 SWITCH TO WEBCAM";
-    }
-  });
+    });
+  }
 
   // Client-Side Vision Tracker Loop
   let lastGazeTrigger = 0;
@@ -362,6 +399,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (e.key === " " || key === "spacebar") {
       e.preventDefault();
       sendCommand("S", "Keyboard (Space Brake)");
+    } else if (e.key === "Escape") {
+      exitTheater();
     }
   });
 
@@ -389,4 +428,34 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Failed to save config: " + e.message);
     }
   });
+
+  // 10. Theater / Maximize Mode
+  const btnMaximize = document.getElementById("btn-maximize-stream");
+  const btnExitTheater = document.getElementById("btn-exit-theater");
+
+  function enterTheater() {
+    document.body.classList.add("stream-maximized");
+    // Scroll to top so stream fills screen from top
+    window.scrollTo(0, 0);
+    document.documentElement.style.overflow = "hidden";
+  }
+
+  function exitTheater() {
+    document.body.classList.remove("stream-maximized");
+    document.documentElement.style.overflow = "";
+  }
+
+  if (btnMaximize) {
+    btnMaximize.addEventListener("click", () => {
+      if (document.body.classList.contains("stream-maximized")) {
+        exitTheater();
+      } else {
+        enterTheater();
+      }
+    });
+  }
+
+  if (btnExitTheater) {
+    btnExitTheater.addEventListener("click", exitTheater);
+  }
 });

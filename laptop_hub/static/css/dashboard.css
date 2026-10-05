@@ -987,3 +987,660 @@ input:checked + .switch-pill:before {
   background: #eaeaea;
   box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
 }
+
+/* ==========================================================================
+   COCKPIT LAYOUT — New 12-column dual-modal layout
+   ========================================================================== */
+
+/* Main 12-col grid: left 8-col primary, right 4-col secondary */
+.cockpit-grid {
+  display: grid;
+  grid-template-columns: 1fr 0.48fr;
+  gap: 28px;
+  padding: 28px 36px;
+  max-width: 1920px;
+  margin: 0 auto;
+  min-height: calc(100vh - 80px);
+  align-items: start;
+}
+
+@media (max-width: 1280px) {
+  .cockpit-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left primary column */
+.cockpit-primary {
+  display: flex;
+  flex-direction: column;
+}
+
+/* FPV pod is the main pod in the left column — no margin-bottom, propulsion strip attached */
+.fpv-pod {
+  margin-bottom: 0 !important;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0 !important;
+}
+
+/* HD LOW-LATENCY tag styling */
+.fpv-quality-tag {
+  border-color: var(--outline);
+  color: var(--primary);
+}
+
+/* Right secondary column */
+.cockpit-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cockpit-secondary .bento-pod {
+  margin-bottom: 20px;
+}
+
+.cockpit-secondary .controls-pod {
+  flex: 1;
+}
+
+/* ==========================================================================
+   PITCH LADDER / ARTIFICIAL HORIZON (overlaid on FPV)
+   ========================================================================== */
+.pitch-ladder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  opacity: 0.3;
+}
+
+.pitch-line {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.7);
+  position: relative;
+}
+
+.pitch-line::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 18px;
+  right: 18px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.pitch-zero {
+  width: 160px;
+}
+
+.pitch-zero::before {
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+}
+
+.pitch-neg,
+.pitch-pos {
+  width: 110px;
+}
+
+.pitch-neg::before,
+.pitch-pos::before {
+  background: transparent;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+/* ==========================================================================
+   ENHANCED CROSSHAIR RETICLE
+   ========================================================================== */
+.reticle-outer {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.reticle-inner {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.reticle-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.reticle-cross-h {
+  position: absolute;
+  top: 50%; left: calc(50% - 52px);
+  width: 104px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateY(-50%);
+}
+
+.reticle-cross-v {
+  position: absolute;
+  left: 50%; top: calc(50% - 52px);
+  height: 104px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateX(-50%);
+}
+
+/* fpv-reticle must be positioned inside the container */
+.fpv-reticle {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 104px;
+  height: 104px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+@keyframes reticle-pulse {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(0.97); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
+}
+
+.reticle-pulse {
+  animation: reticle-pulse 3s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   FPV TOP-LEFT HUD TEXT OVERLAY
+   ========================================================================== */
+.fpv-hud-topbar {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hud-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  animation: ping 1.5s ease-in-out infinite;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+@keyframes ping {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.3); }
+}
+
+.hud-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
+.hud-subtext {
+  font-size: 0.65rem;
+  color: rgba(229, 226, 225, 0.8);
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
+.hud-em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.hud-em-warn {
+  color: rgba(255, 180, 50, 0.95);
+}
+
+/* ==========================================================================
+   PICTURE-IN-PICTURE (PIP) — Face-Cam Overlay
+   ========================================================================== */
+.pip-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 196px;
+  background: rgba(14, 14, 14, 0.88);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  backdrop-filter: blur(10px);
+  z-index: 20;
+  transition: border-color 0.2s ease;
+}
+
+.pip-overlay:hover {
+  border-color: var(--outline);
+}
+
+.pip-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  background: rgba(32, 31, 31, 0.9);
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+.pip-brand {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 6px rgba(255,255,255,0.7);
+  animation: ping 1.5s ease-in-out infinite;
+}
+
+.pip-title {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.06em;
+}
+
+.pip-tags {
+  display: flex;
+  gap: 4px;
+}
+
+.pip-tag {
+  font-size: 0.55rem;
+  padding: 2px 5px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-container-high);
+  border: 1px solid var(--outline-variant);
+  color: var(--on-surface-variant);
+  font-weight: 600;
+}
+
+.pip-gaze-tag {
+  background: var(--surface-container-highest);
+  border-color: var(--outline);
+  color: var(--primary);
+}
+
+.pip-video-box {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--surface-container-lowest);
+  overflow: hidden;
+}
+
+.pip-feed-img,
+.pip-feed-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pip-feed-video.hidden {
+  display: none;
+}
+
+/* PIP HUD overlay layer (annotations) */
+.pip-hud-layer {
+  position: absolute;
+  inset: 0;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.pip-gaze-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  padding: 3px 5px;
+  border-radius: 5px;
+  align-self: flex-start;
+}
+
+.pip-gaze-text {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+}
+
+.pip-conf-text {
+  font-size: 0.5rem;
+  color: var(--on-surface-variant);
+}
+
+/* Face bounding box visualizer in PIP */
+.pip-face-box {
+  align-self: center;
+  width: 60px;
+  height: 60px;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px;
+}
+
+.pip-face-label {
+  font-size: 0.48rem;
+  font-weight: 700;
+  color: #0e0e0e;
+  background: var(--primary);
+  padding: 1px 3px;
+  border-radius: 2px;
+  align-self: flex-start;
+  line-height: 1.2;
+}
+
+.pip-eye-row {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.pip-eye {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--outline);
+  background: rgba(255,255,255,0.2);
+}
+
+.pip-face-foot {
+  font-size: 0.45rem;
+  color: var(--on-surface-variant);
+  align-self: flex-end;
+  line-height: 1;
+}
+
+.pip-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.pip-cam-btn {
+  font-size: 0.5rem;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(32, 31, 31, 0.85);
+  border: 1px solid var(--outline-variant);
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.pip-cam-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.pip-fps {
+  font-size: 0.48rem;
+  color: var(--on-surface-variant);
+  background: rgba(0,0,0,0.5);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ==========================================================================
+   PROPULSION STRIP — attached to bottom of FPV pod
+   ========================================================================== */
+.propulsion-strip {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 26px;
+  background: var(--surface-container-high);
+  border-top: 1px solid var(--outline-variant);
+  border-radius: 0 0 var(--radius-bento) var(--radius-bento);
+  border: 1px solid var(--outline-variant);
+  border-top: none;
+  flex-shrink: 0;
+}
+
+.propulsion-strip.active-moving {
+  border-color: var(--primary);
+  background: var(--surface-bright);
+  box-shadow: 0 8px 30px rgba(255, 255, 255, 0.1);
+}
+
+/* Quick gesture pills in propulsion strip */
+.gesture-quick-row {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.gq-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  font-size: 0.68rem;
+  color: var(--on-surface-variant);
+  transition: all 0.2s ease;
+}
+
+.gq-active {
+  background: var(--surface-bright);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.gq-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.gq-dot-inactive {
+  background: var(--outline-variant);
+}
+
+/* ==========================================================================
+   SCOPE CANVAS — compact height for right panel
+   ========================================================================== */
+#scopeCanvas {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+
+
+/* ==========================================================================
+   UI CLEANUP PATCH — propulsion strip direct h3, simplified PIP
+   ========================================================================== */
+
+/* propulsion-state directly in strip (no .propulsion-copy wrapper) */
+.propulsion-strip > .propulsion-state {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* gq-pill: smaller, tighter without long text */
+.gq-pill {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+/* pip-gaze-text: bigger, centered, just the word */
+.pip-gaze-text {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: 0.1em;
+}
+
+/* pip-gaze-tag: larger, more visible */
+.pip-gaze-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+}
+
+
+/* ==========================================================================
+   THEATER / MAXIMIZE MODE
+   Body gets class "stream-maximized" when the FPV is maximized.
+   Everything except the video-frame-container + PIP is hidden.
+   ========================================================================== */
+
+/* Maximize button in the FPV pod header */
+.maximize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  padding: 6px 14px;
+  transition: all 0.2s ease;
+}
+
+.maximize-btn:hover {
+  background: var(--surface-bright);
+  border-color: var(--primary);
+  box-shadow: 0 0 12px rgba(255,255,255,0.1);
+}
+
+/* Theater exit button — hidden by default, top-right of video */
+.theater-exit-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  gap: 5px;
+  background: rgba(14, 14, 14, 0.88);
+  border: 1px solid var(--outline);
+  color: var(--primary);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.theater-exit-btn:hover {
+  background: rgba(32, 31, 31, 0.95);
+  border-color: var(--primary);
+}
+
+/* When maximized — show exit button */
+body.stream-maximized .theater-exit-btn {
+  display: inline-flex;
+}
+
+/* Hide everything except the primary stream column */
+body.stream-maximized .studio-header,
+body.stream-maximized .cockpit-secondary,
+body.stream-maximized .propulsion-strip,
+body.stream-maximized .pod-header,
+body.stream-maximized .fpv-bottom-bar {
+  display: none !important;
+}
+
+/* Make the cockpit-grid a single full-width column */
+body.stream-maximized .cockpit-grid {
+  grid-template-columns: 1fr;
+  padding: 0;
+  gap: 0;
+  height: 100vh;
+  min-height: 100vh;
+}
+
+/* Stretch the primary section to fill viewport */
+body.stream-maximized .cockpit-primary {
+  height: 100vh;
+}
+
+/* FPV pod: no padding, no border radius, no margin */
+body.stream-maximized .fpv-pod {
+  border-radius: 0 !important;
+  border: none !important;
+  padding: 0 !important;
+  height: 100%;
+  box-shadow: none !important;
+}
+
+/* Video frame: fill entire viewport */
+body.stream-maximized .video-frame-container {
+  aspect-ratio: unset !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* Smooth transitions on enter/exit */
+.cockpit-grid,
+.cockpit-primary,
+.fpv-pod,
+.video-frame-container {
+  transition: all 0.25s ease;
+}
+

@@ -32,11 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const stateTitle = document.getElementById("state-title");
   const stateIcon = document.getElementById("state-icon");
 
-  // Radar & Obstacle
-  const radarCmVal = document.getElementById("radar-cm-val");
-  const radarBarFill = document.getElementById("radar-bar-fill");
-  const radarSafetyBadge = document.getElementById("radar-safety-badge");
-  const radarOverrideStatus = document.getElementById("radar-override-status");
+  // Radar & Obstacle (kept as optional references)
   const obstacleBanner = document.getElementById("obstacle-banner");
   const hudDistPill = document.getElementById("hud-dist-pill");
 
@@ -248,30 +244,11 @@ document.addEventListener("DOMContentLoaded", () => {
       stateIcon.textContent = "■";
     }
 
-    // Radar & Proximity
+    // Radar & Proximity (simplified — radar card removed from UI)
     const dist = data.ultrasonic_distance || 99;
-    radarCmVal.textContent = `${dist} CM`;
-    hudDistPill.textContent = `RADAR: ${dist} CM`;
-
-    const pct = Math.min(100, Math.max(5, (dist / 120) * 100));
-    radarBarFill.style.width = `${pct}%`;
-
-    if (dist < 30 || data.obstacle_alert) {
-      radarSafetyBadge.textContent = "AUTO-BRAKE ACTIVE";
-      radarSafetyBadge.className = "pill-tag warn-tag";
-      radarOverrideStatus.textContent = "ENGAGED";
-      radarOverrideStatus.style.color = "var(--error)";
-      radarBarFill.style.backgroundColor = "var(--error)";
-      obstacleBanner.style.display = "block";
-      hudDistPill.className = "pill-tag sub-pill danger-pill";
-    } else {
-      radarSafetyBadge.textContent = "PATH CLEAR";
-      radarSafetyBadge.className = "pill-tag safe-tag";
-      radarOverrideStatus.textContent = "STANDBY";
-      radarOverrideStatus.style.color = "var(--primary)";
-      radarBarFill.style.backgroundColor = "var(--primary)";
-      obstacleBanner.style.display = "none";
-      hudDistPill.className = "pill-tag sub-pill safe-pill";
+    if (hudDistPill) hudDistPill.textContent = `RADAR: ${dist} CM`;
+    if (obstacleBanner) {
+      obstacleBanner.style.display = (dist < 30 || data.obstacle_alert) ? "block" : "none";
     }
 
     // Biosignal Readouts

@@ -205,41 +205,27 @@
         </div>
       </div>
 
-      <!-- Card 2: HC-SR04 Proximity Radar -->
-      <div class="bento-pod radar-pod" data-purpose="compact-radar-card">
-        <div class="pod-header">
-          <div class="pod-title-group">
-            <span class="pod-badge">Collision Avoidance</span>
-            <h2 class="pod-heading">HC-SR04 Proximity Radar</h2>
+      <!-- Card 2: Morse Communicator Link -->
+      <div class="bento-pod morse-link-pod" data-purpose="morse-link-card">
+        <a href="/morse" class="morse-link-inner" id="morse-page-link">
+          <div class="morse-link-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
           </div>
-          <span class="pill-tag safe-tag" id="radar-safety-badge">PATH CLEAR</span>
-        </div>
-        <div class="radar-flex-row">
-          <div class="radar-disc-wrap">
-            <div class="radar-disc">
-              <div class="radar-sweep"></div>
-              <div class="radar-ring"></div>
-              <div class="radar-core"></div>
-            </div>
+          <div class="morse-link-text">
+            <span class="morse-link-badge">Assistive Communication</span>
+            <span class="morse-link-title">Morse Communicator</span>
+            <span class="morse-link-desc">Blink-to-Speech · Open dedicated interface →</span>
           </div>
-          <div class="radar-data-stack">
-            <div class="data-row">
-              <span class="data-label">FRONT DISTANCE</span>
-              <span class="data-val font-mono" id="radar-cm-val">95 CM</span>
-            </div>
-            <div class="data-row">
-              <span class="data-label">AUTO-BRAKE THRESHOLD</span>
-              <span class="data-val font-mono">30 CM</span>
-            </div>
-            <div class="data-row">
-              <span class="data-label">SAFETY OVERRIDE</span>
-              <span class="data-val font-mono" id="radar-override-status">STANDBY</span>
-            </div>
-            <div class="progress-track">
-              <div class="progress-fill" id="radar-bar-fill"></div>
-            </div>
+          <div class="morse-link-arrow">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
           </div>
-        </div>
+        </a>
       </div>
 
       <!-- Card 3: Manual Override & Log -->

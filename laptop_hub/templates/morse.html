@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OcuSteer — Morse Code Communicator</title>
+  <meta name="description" content="OcuSteer Morse Code: Blink-to-speech assistive communication interface using eye-blink Morse code decoding.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/morse.css">
+</head>
+<body class="morse-body">
+
+  <!-- Navigation Bar -->
+  <nav class="morse-nav">
+    <a href="/" class="nav-back" id="nav-back-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      COCKPIT
+    </a>
+    <div class="nav-brand">
+      <div class="nav-monogram">OV</div>
+      <div class="nav-title-group">
+        <h1 class="nav-title">Morse Communicator</h1>
+        <span class="nav-subtitle font-mono">BLINK-TO-SPEECH · ASSISTIVE INTERFACE</span>
+      </div>
+    </div>
+    <div class="nav-status-group">
+      <div class="nav-pill" id="nav-connection-pill">
+        <span class="nav-pill-dot" id="nav-dot"></span>
+        <span class="font-mono" id="nav-status-text">STANDBY</span>
+      </div>
+      <span class="nav-clock font-mono" id="morse-clock">00:00:00</span>
+    </div>
+  </nav>
+
+  <!-- Main Layout -->
+  <main class="morse-main">
+
+    <!-- LEFT: Driver Camera Feed + Blink Indicator -->
+    <section class="morse-left-col">
+
+      <!-- Driver Feed -->
+      <div class="driver-feed-card">
+        <div class="card-header">
+          <span class="card-badge">Live Feed</span>
+          <h2 class="card-title">Driver Eye Tracker</h2>
+        </div>
+        <div class="driver-video-wrap">
+          <img src="/video_feed/driver" alt="Driver Eye Feed" class="driver-video" id="driver-video-feed">
+          <div class="driver-video-overlay">
+            <span class="feed-live-dot"></span>
+            <span class="feed-label font-mono">AI VISION</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blink Sensor Panel -->
+      <div class="blink-sensor-card">
+        <div class="card-header">
+          <span class="card-badge">Blink Sensor</span>
+          <h2 class="card-title">Input Signal</h2>
+        </div>
+        <div class="blink-visual-row">
+          <!-- Eye Animation -->
+          <div class="eye-anim-wrap" id="eye-anim">
+            <div class="eye-shape" id="eye-shape">
+              <div class="eye-pupil" id="eye-pupil"></div>
+            </div>
+          </div>
+          <!-- Blink Stats -->
+          <div class="blink-stats">
+            <div class="stat-item">
+              <span class="stat-label">STATE</span>
+              <span class="stat-value font-mono" id="blink-state-val">OPEN</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">DURATION</span>
+              <span class="stat-value font-mono" id="blink-dur-val">0.00s</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">SIGNAL</span>
+              <div class="signal-bar-wrap">
+                <div class="signal-bar" id="blink-signal-bar"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="blink-timing-legend font-mono">
+          <span><span class="dot-sym">·</span> SHORT (&lt;0.35s) = DOT</span>
+          <span><span class="dash-sym">−</span> LONG (≥0.35s) = DASH</span>
+        </div>
+      </div>
+
+      <!-- Keyboard Hint -->
+      <div class="keyboard-hint-card">
+        <div class="hint-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+            <line x1="6" y1="8" x2="6.01" y2="8"></line>
+            <line x1="10" y1="8" x2="10.01" y2="8"></line>
+            <line x1="14" y1="8" x2="14.01" y2="8"></line>
+            <line x1="18" y1="8" x2="18.01" y2="8"></line>
+            <line x1="6" y1="12" x2="6.01" y2="12"></line>
+            <line x1="18" y1="12" x2="18.01" y2="12"></line>
+            <line x1="8" y1="16" x2="16" y2="16"></line>
+          </svg>
+        </div>
+        <div class="hint-text">
+          <strong>Hold SPACEBAR</strong> to simulate a blink &middot; Short press = dot &middot; Long press = dash
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Morse Decoder Output -->
+    <section class="morse-right-col">
+
+      <!-- Current Symbol -->
+      <div class="symbol-card">
+        <div class="card-header">
+          <span class="card-badge">Current Symbol</span>
+          <h2 class="card-title">Building...</h2>
+        </div>
+        <div class="symbol-display" id="symbol-display">
+          <span class="symbol-dots font-mono" id="symbol-dots">—</span>
+        </div>
+      </div>
+
+      <!-- Decoded Message (Hero) -->
+      <div class="message-card">
+        <div class="card-header">
+          <span class="card-badge">Decoded Output</span>
+          <div class="message-controls">
+            <button class="action-btn speak-btn" id="btn-speak" title="Speak aloud">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+              SPEAK
+            </button>
+            <button class="action-btn clear-btn" id="btn-clear" title="Clear message">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              CLEAR
+            </button>
+          </div>
+        </div>
+        <div class="message-output" id="message-output">
+          <span class="msg-placeholder">Hold SPACEBAR or blink to compose...</span>
+        </div>
+        <div class="message-cursor-line" id="msg-cursor"></div>
+      </div>
+
+      <!-- Symbol History -->
+      <div class="history-card">
+        <div class="card-header">
+          <span class="card-badge">History</span>
+          <h2 class="card-title">Decoded Symbols</h2>
+        </div>
+        <div class="history-flow" id="history-flow">
+          <span class="history-placeholder">Awaiting input...</span>
+        </div>
+      </div>
+
+      <!-- Morse Reference -->
+      <details class="ref-card" id="morse-ref-details">
+        <summary class="ref-summary font-mono">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          MORSE CODE QUICK REFERENCE
+          <span class="ref-chevron">▸</span>
+        </summary>
+        <div class="ref-grid font-mono">
+          <div class="ref-section">
+            <div class="ref-section-title">LETTERS</div>
+            <div class="ref-items">
+              <span>A ·−</span><span>B −···</span><span>C −·−·</span><span>D −··</span>
+              <span>E ·</span><span>F ··−·</span><span>G −−·</span><span>H ····</span>
+              <span>I ··</span><span>J ·−−−</span><span>K −·−</span><span>L ·−··</span>
+              <span>M −−</span><span>N −·</span><span>O −−−</span><span>P ·−−·</span>
+              <span>Q −−·−</span><span>R ·−·</span><span>S ···</span><span>T −</span>
+              <span>U ··−</span><span>V ···−</span><span>W ·−−</span><span>X −··−</span>
+              <span>Y −·−−</span><span>Z −−··</span>
+            </div>
+          </div>
+          <div class="ref-section">
+            <div class="ref-section-title">NUMBERS</div>
+            <div class="ref-items">
+              <span>0 −−−−−</span><span>1 ·−−−−</span><span>2 ··−−−</span><span>3 ···−−</span><span>4 ····−</span>
+              <span>5 ·····</span><span>6 −····</span><span>7 −−···</span><span>8 −−−··</span><span>9 −−−−·</span>
+            </div>
+          </div>
+          <div class="ref-section">
+            <div class="ref-section-title">COMMON</div>
+            <div class="ref-items">
+              <span>. ·−·−·−</span><span>, −−··−−</span><span>? ··−−··</span><span>! −·−·−−</span><span>SOS ···−−−···</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+    </section>
+  </main>
+
+  <!-- Virtual Blink Button (FAB) — for touch / mouse -->
+  <button class="fab-blink" id="fab-blink" title="Hold to blink (simulates eye blink)">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    </svg>
+  </button>
+
+  <script src="/static/js/morse.js"></script>
+</body>
+</html>

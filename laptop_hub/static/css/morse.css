@@ -1,0 +1,837 @@
+/* ==========================================================================
+   OcuSteer Morse Communicator — Dedicated Page Stylesheet
+   Dark monochromatic obsidian design, focused on accessibility and clarity.
+   ========================================================================== */
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #131313;
+  --surface-dim: #0e0e0e;
+  --surface-low: #1c1b1b;
+  --surface-mid: #201f1f;
+  --surface-high: #2a2a2a;
+  --surface-highest: #353534;
+  --surface-bright: #3a3939;
+
+  --on-surface: #e5e2e1;
+  --on-surface-var: #c4c7c8;
+  --outline: #8e9192;
+  --outline-var: #444748;
+
+  --primary: #ffffff;
+  --on-primary: #131313;
+  --secondary: #c7c6c6;
+  --accent: #a78bfa;
+  --accent-glow: rgba(167, 139, 250, 0.25);
+
+  --error: #ffb4ab;
+  --success: #a8f0c6;
+
+  --font-serif: 'Libre Caslon Text', Georgia, serif;
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --radius-pill: 9999px;
+
+  --shadow-card: 0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+  --shadow-glow: 0 0 30px rgba(255,255,255,0.06);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+.morse-body {
+  background: var(--bg);
+  color: var(--on-surface);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono { font-family: var(--font-mono); }
+
+/* ==========================================================================
+   NAVIGATION
+   ========================================================================== */
+.morse-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--outline-var);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(16px);
+}
+
+.nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--on-surface-var);
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--outline-var);
+  background: var(--surface-low);
+  transition: all 0.2s ease;
+}
+
+.nav-back:hover {
+  background: var(--surface-bright);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.nav-monogram {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface-highest);
+  border: 1px solid var(--outline-var);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.nav-title {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.nav-subtitle {
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  color: var(--on-surface-var);
+  font-weight: 600;
+}
+
+.nav-status-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: var(--surface-low);
+  border: 1px solid var(--outline-var);
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--on-surface-var);
+  transition: all 0.25s ease;
+}
+
+.nav-pill.active {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.4);
+  color: var(--primary);
+  box-shadow: 0 0 16px rgba(255,255,255,0.1);
+}
+
+.nav-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--outline);
+  transition: all 0.25s ease;
+}
+
+.nav-pill.active .nav-pill-dot {
+  background: var(--primary);
+  box-shadow: 0 0 8px rgba(255,255,255,0.8);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
+
+.nav-clock {
+  font-size: 0.78rem;
+  color: var(--on-surface-var);
+  padding: 7px 14px;
+  border: 1px solid var(--outline-var);
+  border-radius: var(--radius-pill);
+  background: var(--surface-mid);
+}
+
+/* ==========================================================================
+   MAIN LAYOUT
+   ========================================================================== */
+.morse-main {
+  display: grid;
+  grid-template-columns: 0.45fr 0.55fr;
+  gap: 24px;
+  padding: 24px 32px 100px 32px;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: calc(100vh - 70px);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .morse-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   CARD SYSTEM
+   ========================================================================== */
+.driver-feed-card,
+.blink-sensor-card,
+.keyboard-hint-card,
+.symbol-card,
+.message-card,
+.history-card {
+  background: var(--surface-mid);
+  border: 1px solid var(--outline-var);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s ease;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--surface-high);
+}
+
+.card-badge {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  color: var(--on-surface-var);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.card-title {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* ==========================================================================
+   DRIVER VIDEO FEED
+   ========================================================================== */
+.driver-video-wrap {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--outline-var);
+  background: var(--surface-dim);
+  aspect-ratio: 4 / 3;
+}
+
+.driver-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.driver-video-overlay {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+}
+
+.feed-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 6px rgba(255,255,255,0.7);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.feed-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.08em;
+}
+
+/* ==========================================================================
+   BLINK SENSOR PANEL
+   ========================================================================== */
+.blink-visual-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+/* Animated Eye */
+.eye-anim-wrap {
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: var(--surface-dim);
+  border: 2px solid var(--outline-var);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.eye-anim-wrap.blinking {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 30px rgba(255,255,255,0.3);
+}
+
+.eye-shape {
+  width: 52px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e8e6e4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.12s ease;
+}
+
+.eye-shape.closed {
+  height: 4px;
+  border-radius: 2px;
+}
+
+.eye-pupil {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  position: relative;
+  transition: all 0.12s ease;
+}
+
+.eye-pupil::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.7);
+}
+
+.eye-shape.closed .eye-pupil {
+  opacity: 0;
+  transform: scale(0.3);
+}
+
+.blink-stats {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--on-surface-var);
+  font-weight: 700;
+}
+
+.stat-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.stat-value.blinking-val {
+  color: var(--accent);
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+
+.signal-bar-wrap {
+  width: 100px;
+  height: 6px;
+  background: var(--surface-highest);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.signal-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--primary);
+  border-radius: var(--radius-pill);
+  transition: width 0.08s linear, background-color 0.15s ease;
+}
+
+.signal-bar.long {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.blink-timing-legend {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-high);
+  font-size: 0.65rem;
+  color: var(--on-surface-var);
+}
+
+.dot-sym {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--primary);
+  vertical-align: middle;
+  margin-right: 3px;
+}
+
+.dash-sym {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+  vertical-align: middle;
+  margin-right: 3px;
+}
+
+/* ==========================================================================
+   KEYBOARD HINT
+   ========================================================================== */
+.keyboard-hint-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: var(--surface-low);
+  border: 1px dashed var(--outline-var);
+}
+
+.hint-icon {
+  flex-shrink: 0;
+  color: var(--on-surface-var);
+}
+
+.hint-text {
+  font-size: 0.78rem;
+  color: var(--on-surface-var);
+  line-height: 1.5;
+}
+
+.hint-text strong {
+  color: var(--primary);
+}
+
+/* ==========================================================================
+   CURRENT SYMBOL DISPLAY
+   ========================================================================== */
+.symbol-card {
+  text-align: center;
+}
+
+.symbol-display {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-dim);
+  border: 1px solid var(--outline-var);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.symbol-dots {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.4em;
+  text-shadow: 0 0 16px rgba(255,255,255,0.3);
+  transition: text-shadow 0.15s ease;
+}
+
+.symbol-dots.has-data {
+  text-shadow: 0 0 28px rgba(255,255,255,0.6);
+}
+
+/* ==========================================================================
+   MESSAGE OUTPUT (HERO)
+   ========================================================================== */
+.message-card {
+  border-color: var(--outline);
+  box-shadow: var(--shadow-card), var(--shadow-glow);
+}
+
+.message-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-high);
+  border: 1px solid var(--outline-var);
+  color: var(--on-surface-var);
+  border-radius: var(--radius-pill);
+  padding: 7px 16px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-btn:hover {
+  background: var(--surface-bright);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.action-btn:active {
+  transform: scale(0.96);
+}
+
+.speak-btn:hover {
+  background: rgba(167, 139, 250, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.message-output {
+  min-height: 120px;
+  padding: 20px 24px;
+  background: var(--surface-dim);
+  border: 1px solid var(--outline-var);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+  word-break: break-word;
+  position: relative;
+}
+
+.msg-placeholder {
+  color: var(--outline);
+  font-style: italic;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.message-cursor-line {
+  display: inline-block;
+  width: 3px;
+  height: 1.5em;
+  background: var(--primary);
+  animation: cursor-blink 0.7s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  border-radius: 1px;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ==========================================================================
+   SYMBOL HISTORY
+   ========================================================================== */
+.history-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.history-placeholder {
+  color: var(--outline);
+  font-style: italic;
+  font-size: 0.78rem;
+}
+
+.hist-tag {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-highest);
+  border: 1px solid var(--outline-var);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  gap: 2px;
+  transition: all 0.2s ease;
+  animation: tag-pop 0.25s ease-out;
+}
+
+@keyframes tag-pop {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.hist-tag:last-child {
+  border-color: var(--primary);
+  box-shadow: 0 0 12px rgba(255,255,255,0.12);
+}
+
+.hist-char {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.hist-morse {
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  color: var(--on-surface-var);
+  letter-spacing: 0.1em;
+}
+
+/* ==========================================================================
+   MORSE REFERENCE
+   ========================================================================== */
+.ref-card {
+  background: var(--surface-mid);
+  border: 1px solid var(--outline-var);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 20px;
+  transition: border-color 0.2s ease;
+}
+
+.ref-card[open] {
+  border-color: var(--outline);
+}
+
+.ref-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 22px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--on-surface-var);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  background: var(--surface-mid);
+  transition: all 0.15s ease;
+  list-style: none;
+}
+
+.ref-summary::-webkit-details-marker { display: none; }
+
+.ref-chevron {
+  margin-left: auto;
+  font-size: 0.85rem;
+  transition: transform 0.2s ease;
+}
+
+.ref-card[open] .ref-chevron {
+  transform: rotate(90deg);
+}
+
+.ref-summary:hover {
+  background: var(--surface-high);
+  color: var(--primary);
+}
+
+.ref-grid {
+  padding: 16px 22px 20px;
+  background: var(--surface-dim);
+  border-top: 1px solid var(--outline-var);
+}
+
+.ref-section {
+  margin-bottom: 14px;
+}
+
+.ref-section:last-child {
+  margin-bottom: 0;
+}
+
+.ref-section-title {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--on-surface-var);
+  margin-bottom: 8px;
+}
+
+.ref-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 4px;
+}
+
+.ref-items span {
+  font-size: 0.62rem;
+  color: var(--secondary);
+  padding: 4px 6px;
+  border-radius: 4px;
+  text-align: center;
+  transition: all 0.12s ease;
+}
+
+.ref-items span:hover {
+  background: var(--surface-high);
+  color: var(--primary);
+}
+
+/* ==========================================================================
+   FAB — VIRTUAL BLINK BUTTON
+   ========================================================================== */
+.fab-blink {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--surface-high);
+  border: 2px solid var(--outline-var);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 200;
+  transition: all 0.15s ease;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+}
+
+.fab-blink:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6), 0 0 20px rgba(255,255,255,0.1);
+  transform: scale(1.05);
+}
+
+.fab-blink:active,
+.fab-blink.pressed {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+  transform: scale(0.95);
+  box-shadow: 0 0 40px rgba(255,255,255,0.3);
+}
+
+/* ==========================================================================
+   LEFT / RIGHT COLUMNS
+   ========================================================================== */
+.morse-left-col,
+.morse-right-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+@media (max-width: 1100px) {
+  .morse-nav {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .morse-main {
+    padding: 16px;
+    gap: 16px;
+  }
+  .message-output {
+    font-size: 1.2rem;
+    min-height: 80px;
+    padding: 14px 16px;
+  }
+  .symbol-dots {
+    font-size: 2.2rem;
+  }
+  .ref-items {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .nav-brand { display: none; }
+  .morse-main { padding: 12px; }
+  .driver-feed-card,
+  .blink-sensor-card,
+  .keyboard-hint-card,
+  .symbol-card,
+  .message-card,
+  .history-card {
+    padding: 14px;
+    border-radius: var(--radius-md);
+  }
+}
+
+/* ==========================================================================
+   SCROLLBAR
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface-dim);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--outline-var);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--outline);
+}

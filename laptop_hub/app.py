@@ -26,6 +26,7 @@ from flask import Flask, render_template, Response, request, jsonify
 # Add current dir to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from eye_tracker import EyeTracker
+from morse_decoder import MorseDecoder
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
@@ -54,11 +55,13 @@ system_state = {
     "blink_active": False,
     "clench_active": False,
     "last_command": "STOP",
-    "command_log": []
+    "command_log": [],
+    "morse_mode": False
 }
 
 state_lock = threading.RLock()
 eye_tracker = EyeTracker(camera_index=0)
+morse_decoder = MorseDecoder()
 arduino_sensor_serial = None
 
 
@@ -98,6 +101,10 @@ def sensor_acquisition_thread():
                     eog_val += 180 + random.randint(-15, 15)
                 elif gaze == "RIGHT":
                     eog_val -= 180 + random.randint(-15, 15)
+
+                # Massive EOG spike artifact during blinks (Bell's phenomenon)
+                if system_state.get("blink_active", False):
+                    eog_val += 300 + random.randint(-20, 20)
 
                 if system_state["clench_active"]:
                     piezo_val = 480 + random.randint(-30, 40)
@@ -148,6 +155,7 @@ def vision_ai_thread():
     """Continuously runs the EyeTracker and evaluates driving gestures."""
     global latest_driver_jpeg, system_state
     last_gaze_cmd_time = 0
+    prev_blink_state = False
 
     while True:
         annotated_frame, telemetry = eye_tracker.process_frame()
@@ -155,24 +163,41 @@ def vision_ai_thread():
         with state_lock:
             system_state["current_gaze"] = telemetry["gaze"]
             system_state["gaze_ratio"] = telemetry["gaze_ratio"]
-            system_state["blink_active"] = telemetry["blink"]
+            # Multi-modal blink detection: Vision AI + EOG Voltage Spike (>750)
+            eog_spike = system_state.get("eog_value", 512) > 750
+            camera_blink = telemetry["blink"]
+            current_blink = camera_blink or eog_spike
 
-            # AI Gaze Steering Decision
-            if config["ai_autopilot_enabled"]:
-                now = time.time()
-                # Double blink toggles forward/stop
-                if telemetry["double_blink"] and config["blink_trigger_enabled"]:
-                    new_cmd = "F" if system_state["car_state"] == "STOP" else "S"
-                    dispatch_car_command(new_cmd, source="AI Double-Blink")
+            system_state["blink_active"] = current_blink
+            morse_mode = system_state.get("morse_mode", False)
 
-                # Left / Right Glance Nudge (with 0.6s cooldown)
-                elif now - last_gaze_cmd_time > 0.6:
-                    if telemetry["gaze"] == "LEFT":
-                        dispatch_car_command("L", source="AI Gaze Left")
-                        last_gaze_cmd_time = now
-                    elif telemetry["gaze"] == "RIGHT":
-                        dispatch_car_command("R", source="AI Gaze Right")
-                        last_gaze_cmd_time = now
+            # --- Morse Code Blink Communication ---
+            if morse_mode:
+                # Detect blink transitions for morse decoder
+                if current_blink and not prev_blink_state:
+                    morse_decoder.on_blink_start()
+                elif not current_blink and prev_blink_state:
+                    morse_decoder.on_blink_end()
+            else:
+                # --- Normal Driving Mode ---
+                # AI Gaze Steering Decision
+                if config["ai_autopilot_enabled"]:
+                    now = time.time()
+                    # Double blink toggles forward/stop
+                    if telemetry["double_blink"] and config["blink_trigger_enabled"]:
+                        new_cmd = "F" if system_state["car_state"] == "STOP" else "S"
+                        dispatch_car_command(new_cmd, source="AI Double-Blink")
+
+                    # Left / Right Glance Nudge (with 0.6s cooldown)
+                    elif now - last_gaze_cmd_time > 0.6:
+                        if telemetry["gaze"] == "LEFT":
+                            dispatch_car_command("L", source="AI Gaze Left")
+                            last_gaze_cmd_time = now
+                        elif telemetry["gaze"] == "RIGHT":
+                            dispatch_car_command("R", source="AI Gaze Right")
+                            last_gaze_cmd_time = now
+
+            prev_blink_state = current_blink
 
         # Encode JPEG for browser HUD
         try:
@@ -282,6 +307,11 @@ def dashboard():
     return render_template("dashboard.html", config=config)
 
 
+@app.route('/morse')
+def morse_page():
+    return render_template("morse.html")
+
+
 @app.route('/video_feed/driver')
 def video_feed_driver():
     return Response(generate_driver_stream(), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -310,8 +340,57 @@ def get_telemetry():
             "clench_active": system_state["clench_active"],
             "last_command": system_state["last_command"],
             "command_log": system_state["command_log"][:10],
-            "config": config
+            "config": config,
+            "morse_mode": system_state.get("morse_mode", False),
+            "morse": morse_decoder.get_state()
         })
+
+
+@app.route('/api/morse/toggle', methods=['POST'])
+def toggle_morse_mode():
+    """Toggle Morse code communication mode on/off."""
+    with state_lock:
+        system_state["morse_mode"] = not system_state.get("morse_mode", False)
+        morse_decoder.enabled = system_state["morse_mode"]
+        if not system_state["morse_mode"]:
+            morse_decoder.clear_message()
+    return jsonify({"status": "ok", "morse_mode": system_state["morse_mode"]})
+
+
+@app.route('/api/morse/clear', methods=['POST'])
+def clear_morse():
+    """Clear the decoded Morse message buffer."""
+    morse_decoder.clear_message()
+    return jsonify({"status": "ok"})
+
+
+@app.route('/api/morse/speak', methods=['POST'])
+def speak_morse():
+    """Immediately speak the decoded message via TTS."""
+    msg = morse_decoder.speak_now()
+    return jsonify({"status": "ok", "spoken": msg})
+
+
+@app.route('/api/morse/blink', methods=['POST'])
+def manual_morse_blink():
+    """Accept manual blink start/end events from the browser (keyboard/button)."""
+    data = request.json or {}
+    action = data.get("action", "")
+
+    # Auto-enable morse mode if not already
+    with state_lock:
+        if not system_state.get("morse_mode", False):
+            system_state["morse_mode"] = True
+            morse_decoder.enabled = True
+
+    if action == "start":
+        morse_decoder.on_blink_start()
+        return jsonify({"status": "ok", "event": "blink_start"})
+    elif action == "end":
+        morse_decoder.on_blink_end()
+        return jsonify({"status": "ok", "event": "blink_end"})
+    else:
+        return jsonify({"status": "error", "message": "Invalid action"}), 400
 
 
 @app.route('/api/command', methods=['POST'])
@@ -344,6 +423,7 @@ if __name__ == '__main__':
     print("🌐 Dashboard URL : http://127.0.0.1:5000")
     print("👁️ Vision AI     : Online (Webcam Eye & Blink Tracking)")
     print("⚡ Sensor Intake : Online (Temple EOG & Piezo Clench)")
+    print("📡 Morse Blink   : Online (Blink-to-Speech Communication)")
     print("=" * 65)
 
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

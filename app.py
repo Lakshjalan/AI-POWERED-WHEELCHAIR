@@ -27,6 +27,7 @@ if __name__ == "__main__":
     print("=" * 65)
     print("🚀 OCUSTEER TELEMETRY & COCKPIT HUB RUNNING (Fedora Linux)")
     print("🌐 Dashboard URL : http://127.0.0.1:5000")
+    print("📡 Morse Comms   : http://127.0.0.1:5000/morse")
     print("👁️ Vision AI     : Online (Webcam Eye & Blink Tracking)")
     print("⚡ Sensor Intake : Online (Temple EOG & Piezo Clench)")
     print("=" * 65)

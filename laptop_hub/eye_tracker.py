@@ -107,6 +107,7 @@ class EyeTracker:
 
                 # Eye ROI & pupil detection around landmarks
                 eye_ratios = []
+                eye_contrasts = []
                 for (ex, ey) in [(re_x, re_y), (le_x, le_y)]:
                     cv2.circle(frame, (ex, ey), 4, (0, 255, 255), -1)
 
@@ -119,16 +120,35 @@ class EyeTracker:
                         eye_patch = frame[y1:y2, x1:x2]
                         gray_patch = cv2.cvtColor(eye_patch, cv2.COLOR_BGR2GRAY)
                         # Find darkest region (pupil)
-                        min_val, _, min_loc, _ = cv2.minMaxLoc(gray_patch)
+                        min_val, max_val, min_loc, _ = cv2.minMaxLoc(gray_patch)
                         pupil_x = x1 + min_loc[0]
                         pupil_y = y1 + min_loc[1]
                         cv2.circle(frame, (pupil_x, pupil_y), 3, (0, 0, 255), -1)
 
                         ratio = (pupil_x - x1) / float(x2 - x1)
                         eye_ratios.append(ratio)
+                        
+                        # Contrast metric for blink detection
+                        # When eyes are open, dark pupil vs white sclera creates high contrast.
+                        # When closed, skin is relatively uniform.
+                        avg_intensity = np.mean(gray_patch)
+                        contrast = avg_intensity - min_val
+                        eye_contrasts.append(contrast)
+
+                # Compute blink state based on eye patch contrast
+                if len(eye_contrasts) > 0:
+                    avg_contrast = sum(eye_contrasts) / len(eye_contrasts)
+                    # Threshold for closed eyes (low contrast) vs open eyes (high contrast)
+                    if avg_contrast < 18.0:
+                        self.blink_detected = True
+                        if now - self.last_blink_time > 0.15 and now - self.last_blink_time < 0.65:
+                            self.double_blink_detected = True
+                        self.last_blink_time = now
+                    else:
+                        self.blink_detected = False
 
                 # Compute gaze from pupil positions and nose displacement
-                if eye_ratios:
+                if eye_ratios and not self.blink_detected:
                     avg_eye_ratio = sum(eye_ratios) / len(eye_ratios)
                     self.gaze_ratio = self.gaze_ratio * 0.65 + avg_eye_ratio * 0.35
 
@@ -151,9 +171,9 @@ class EyeTracker:
                         self.active_glance = None
                         self.current_gaze = "CENTER"
 
-                self.blink_detected = False
+                # If blink was detected via contrast, don't override it.
             else:
-                # Face missing or eyes closed
+                # Face missing entirely
                 if self.face_detected and not self.blink_detected:
                     self.blink_detected = True
                     gap = now - self.last_blink_time

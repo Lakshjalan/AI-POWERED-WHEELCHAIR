@@ -696,6 +696,84 @@ body.obsidian-body {
   transition: width 0.1s ease, background-color 0.2s ease;
 }
 
+/* Morse Communicator Link Card */
+.morse-link-pod {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.morse-link-inner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 26px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.morse-link-inner:hover {
+  background: var(--surface-container-high);
+}
+
+.morse-link-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--surface-container-highest);
+  border: 1px solid var(--outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.morse-link-inner:hover .morse-link-icon {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 20px rgba(255,255,255,0.15);
+}
+
+.morse-link-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.morse-link-badge {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.morse-link-title {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.morse-link-desc {
+  font-size: 0.72rem;
+  color: var(--on-surface-variant);
+}
+
+.morse-link-arrow {
+  color: var(--outline);
+  transition: all 0.2s ease;
+}
+
+.morse-link-inner:hover .morse-link-arrow {
+  color: var(--primary);
+  transform: translateX(4px);
+}
+
 /* Controls Pod */
 .controls-grid {
   display: grid;
@@ -1644,3 +1722,424 @@ body.stream-maximized .video-frame-container {
   transition: all 0.25s ease;
 }
 
+/* ==========================================================================
+   MORSE CODE BLINK-TO-SPEECH COMMUNICATION PANEL
+   ========================================================================== */
+
+/* Morse pod — subtle accent border when active */
+.morse-pod {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.morse-pod.morse-active {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: var(--shadow-bento), 0 0 30px rgba(255, 255, 255, 0.08);
+}
+
+/* Status tag states */
+.morse-status-tag {
+  transition: all 0.2s ease;
+}
+
+.morse-status-tag.morse-live {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: var(--primary);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+  animation: morse-tag-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes morse-tag-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 255, 255, 0.15); }
+  50% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.35); }
+}
+
+/* Toggle button active state */
+.morse-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  transition: all 0.2s ease;
+}
+
+.morse-toggle-btn.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+}
+
+.morse-toggle-btn.active:hover {
+  background: #eaeaea;
+}
+
+/* --- Blink Indicator Strip --- */
+.morse-blink-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  padding: 12px 18px;
+  margin-bottom: 14px;
+  transition: all 0.15s ease;
+}
+
+.morse-blink-strip.blinking {
+  background: var(--surface-bright);
+  border-color: var(--primary);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.12);
+}
+
+.morse-eye-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.eye-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface-container-highest);
+  border: 1px solid var(--outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.eye-icon-wrap.blink-active {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.eye-icon-wrap.blink-active .eye-icon {
+  stroke: var(--on-primary);
+}
+
+.eye-icon {
+  transition: stroke 0.15s ease;
+}
+
+.blink-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.blink-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.06em;
+}
+
+.blink-duration {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  transition: color 0.15s ease;
+}
+
+.blink-duration.long-blink {
+  color: var(--primary);
+}
+
+.morse-timing-guide {
+  display: flex;
+  gap: 16px;
+}
+
+.timing-item {
+  font-size: 0.68rem;
+  color: var(--on-surface-variant);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dot-symbol {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.dash-symbol {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--secondary);
+  line-height: 1;
+}
+
+/* --- Symbol Buffer --- */
+.morse-symbol-buffer {
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.buffer-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+}
+
+.buffer-display {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.buffer-dots {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.3em;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+  transition: text-shadow 0.15s ease;
+}
+
+.buffer-dots.has-content {
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
+}
+
+/* --- Decoded Message Area --- */
+.morse-message-area {
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--surface-container-high);
+}
+
+.message-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  letter-spacing: 0.12em;
+}
+
+.message-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.morse-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-container-high);
+  border: 1px solid var(--outline-variant);
+  color: var(--on-surface-variant);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.morse-action-btn:hover {
+  background: var(--surface-bright);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.morse-action-btn:active {
+  transform: scale(0.96);
+}
+
+/* Speak button accent */
+#btn-morse-speak:hover {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.15);
+}
+
+.message-display {
+  min-height: 52px;
+  padding: 10px 14px;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  word-break: break-word;
+  position: relative;
+}
+
+.message-placeholder {
+  color: var(--outline);
+  font-style: italic;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.message-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background: var(--primary);
+  animation: cursor-blink 0.8s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* --- Symbol History --- */
+.morse-history {
+  margin-bottom: 14px;
+}
+
+.history-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+}
+
+.history-stream {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 70px;
+  overflow-y: auto;
+}
+
+.history-empty {
+  color: var(--outline);
+  font-style: italic;
+  font-size: 0.75rem;
+}
+
+.history-tag {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-container-highest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 10px;
+  padding: 4px 10px;
+  gap: 1px;
+  transition: all 0.2s ease;
+}
+
+.history-tag:last-child {
+  border-color: var(--primary);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
+}
+
+.history-char {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.history-morse {
+  font-size: 0.55rem;
+  color: var(--on-surface-variant);
+  letter-spacing: 0.08em;
+}
+
+/* --- Morse Reference Chart --- */
+.morse-ref-details {
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.morse-ref-details[open] {
+  border-color: var(--outline);
+}
+
+.morse-ref-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  background: var(--surface-container-low);
+  transition: all 0.15s ease;
+  list-style: none;
+}
+
+.morse-ref-summary::-webkit-details-marker {
+  display: none;
+}
+
+.morse-ref-summary::after {
+  content: '▸';
+  margin-left: auto;
+  font-size: 0.8rem;
+  transition: transform 0.2s ease;
+}
+
+.morse-ref-details[open] .morse-ref-summary::after {
+  transform: rotate(90deg);
+}
+
+.morse-ref-summary:hover {
+  background: var(--surface-container);
+  color: var(--primary);
+}
+
+.morse-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface-container-lowest);
+}
+
+.ref-item {
+  font-size: 0.62rem;
+  color: var(--on-surface-variant);
+  padding: 3px 5px;
+  text-align: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.ref-item:hover {
+  background: var(--surface-container-high);
+  color: var(--primary);
+}
+
+@media (max-width: 1280px) {
+  .morse-ref-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

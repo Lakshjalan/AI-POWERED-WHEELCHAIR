@@ -1,0 +1,5 @@
+Collecting pyttsx3
+  Downloading pyttsx3-2.99-py3-none-any.whl.metadata (6.2 kB)
+Downloading pyttsx3-2.99-py3-none-any.whl (32 kB)
+Installing collected packages: pyttsx3
+Successfully installed pyttsx3-2.99

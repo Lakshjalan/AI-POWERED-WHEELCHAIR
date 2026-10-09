@@ -51,12 +51,14 @@ class MorseDecoder:
     Thread-safe Morse code decoder driven by blink events from the eye tracker.
     """
 
-    def __init__(self):
-        # Timing thresholds (seconds)
-        self.DOT_THRESHOLD = 0.35    # Blinks shorter than this are dots
-        self.CHAR_GAP = 0.8          # Gap to finalize a character
-        self.WORD_GAP = 1.8          # Gap to insert a word space
-        self.SPEAK_GAP = 3.5         # Gap to trigger TTS on accumulated sentence
+    def __init__(self, dot_threshold=0.35, min_blink_dur=0.10, char_gap=0.85, word_gap=2.0, speak_gap=4.0):
+        # Configurable timing thresholds (seconds)
+        self.MIN_BLINK_DURATION = min_blink_dur # Ignore blinks shorter than this (involuntary micro-blinks)
+        self.DOT_THRESHOLD = dot_threshold      # Blinks shorter than this are dots (.), >= are dashes (-)
+        self.MAX_BLINK_DURATION = 3.0           # Cap for dash classification
+        self.CHAR_GAP = char_gap                # Gap to finalize a character
+        self.WORD_GAP = word_gap                # Gap to insert a word space
+        self.SPEAK_GAP = speak_gap              # Gap to trigger auto-TTS on accumulated sentence
 
         # State
         self.lock = threading.RLock()
@@ -65,6 +67,7 @@ class MorseDecoder:
         self.blink_start_time = None
         self.blink_end_time = None
         self.is_blinking = False
+        self.last_blink_duration = 0.0
 
         # Current symbol being built (e.g. ".-" for 'A')
         self.current_symbol = ""
@@ -94,8 +97,22 @@ class MorseDecoder:
         self._gap_thread = threading.Thread(target=self._gap_checker_loop, daemon=True)
         self._gap_thread.start()
 
+    def update_timings(self, dot_thresh=None, char_gap=None, word_gap=None, speak_gap=None, min_blink=None):
+        """Allow runtime adjustment of timing thresholds."""
+        with self.lock:
+            if dot_thresh is not None:
+                self.DOT_THRESHOLD = float(dot_thresh)
+            if char_gap is not None:
+                self.CHAR_GAP = float(char_gap)
+            if word_gap is not None:
+                self.WORD_GAP = float(word_gap)
+            if speak_gap is not None:
+                self.SPEAK_GAP = float(speak_gap)
+            if min_blink is not None:
+                self.MIN_BLINK_DURATION = float(min_blink)
+
     def _init_tts(self):
-        """Initialize text-to-speech engine in a background thread."""
+        """Initialize text-to-speech engine in a background thread with cross-platform fallbacks."""
         def _tts_worker():
             engine = None
             if TTS_ENGINE_AVAILABLE:
@@ -107,7 +124,8 @@ class MorseDecoder:
                     voices = engine.getProperty('voices')
                     if voices and len(voices) > 1:
                         engine.setProperty('voice', voices[1].id)
-                except Exception:
+                except Exception as e:
+                    print(f"⚠️ pyttsx3 worker init notice: {e}")
                     engine = None
 
             while True:
@@ -117,26 +135,40 @@ class MorseDecoder:
                         text_to_speak = self.tts_queue.pop(0)
 
                 if text_to_speak:
-                    try:
-                        if engine:
+                    spoken = False
+                    if engine:
+                        try:
                             engine.say(text_to_speak)
                             engine.runAndWait()
-                        else:
-                            # Fallback: use espeak via subprocess
+                            spoken = True
+                        except Exception as e:
+                            print(f"⚠️ pyttsx3 say error: {e}")
+                    if not spoken:
+                        # Fallback for Windows SAPI5 via PowerShell if available
+                        try:
+                            import subprocess
+                            ps_cmd = f"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{text_to_speak}')"
+                            subprocess.run(["powershell", "-Command", ps_cmd], timeout=10, capture_output=True)
+                            spoken = True
+                        except Exception:
+                            pass
+                    if not spoken:
+                        # Fallback for Linux espeak via subprocess
+                        try:
                             import subprocess
                             subprocess.run(
                                 ["espeak", "-s", "140", text_to_speak],
                                 timeout=10, capture_output=True
                             )
-                    except Exception:
-                        pass
+                        except Exception:
+                            pass
 
-                time.sleep(0.1)
+                time.sleep(0.08)
 
         threading.Thread(target=_tts_worker, daemon=True).start()
 
     def speak(self, text):
-        """Queue text for TTS playback."""
+        """Queue text for non-blocking TTS playback."""
         if text and text.strip():
             with self.tts_lock:
                 self.tts_queue.append(text.strip())
@@ -154,17 +186,29 @@ class MorseDecoder:
                 self.word_gap_processed = False
                 self.speak_triggered = False
 
-    def on_blink_end(self):
+    def on_blink_end(self, explicit_duration=None):
         """Called when a blink ends (eyes open). Determines dot or dash."""
         if not self.enabled:
             return
 
         with self.lock:
-            if self.is_blinking and self.blink_start_time:
-                self.is_blinking = False
+            if self.is_blinking or explicit_duration is not None:
                 self.blink_end_time = time.time()
-                duration = self.blink_end_time - self.blink_start_time
+                if explicit_duration is not None and explicit_duration > 0:
+                    duration = explicit_duration
+                elif self.blink_start_time:
+                    duration = self.blink_end_time - self.blink_start_time
+                else:
+                    duration = 0.0
+
+                self.is_blinking = False
+                self.last_blink_duration = duration
                 self.last_blink_end = self.blink_end_time
+                self.blink_start_time = None
+
+                # Involuntary micro-blink rejection (< min_blink_dur)
+                if duration < self.MIN_BLINK_DURATION:
+                    return
 
                 # Classify: dot or dash
                 if duration < self.DOT_THRESHOLD:
@@ -173,8 +217,6 @@ class MorseDecoder:
                 else:
                     self.current_symbol += "-"
                     self.current_dots_dashes += "−"
-
-                self.blink_start_time = None
 
     def _gap_checker_loop(self):
         """Background thread that checks for inter-symbol / inter-word gaps."""
@@ -260,17 +302,25 @@ class MorseDecoder:
     def get_state(self):
         """Return the current decoder state for the UI."""
         with self.lock:
+            now = time.time()
+            if self.is_blinking and self.blink_start_time:
+                dur = round(now - self.blink_start_time, 2)
+            else:
+                dur = round(self.last_blink_duration, 2)
+
             return {
                 "enabled": self.enabled,
                 "is_blinking": self.is_blinking,
+                "blink_state": "CLOSED" if self.is_blinking else "OPEN",
+                "blink_duration": dur,
                 "current_morse": self.current_symbol,
                 "current_display": self.current_dots_dashes,
                 "decoded_message": self.decoded_message,
                 "last_char": self.last_decoded_char,
                 "symbol_history": list(self.symbol_history[-10:]),
-                "blink_duration": (
-                    round(time.time() - self.blink_start_time, 2)
-                    if self.is_blinking and self.blink_start_time
-                    else 0
-                ),
+                "dot_threshold": self.DOT_THRESHOLD,
+                "char_gap": self.CHAR_GAP,
+                "word_gap": self.WORD_GAP,
+                "speak_gap": self.SPEAK_GAP,
+                "status": "LISTENING" if self.enabled else "STANDBY"
             }

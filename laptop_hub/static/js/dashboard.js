@@ -43,6 +43,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const barPiezo = document.getElementById("bar-piezo");
   const commandLogList = document.getElementById("command-log-list");
 
+  // Morse Cockpit References
+  const morsePod = document.querySelector(".morse-cockpit-pod");
+  const morseStatusTag = document.getElementById("morse-status-tag");
+  const btnToggleMorse = document.getElementById("btn-toggle-morse-mode");
+  const morseEyeState = document.getElementById("morse-eye-state");
+  const morseBlinkDur = document.getElementById("morse-blink-dur");
+  const morseCurrentSymbols = document.getElementById("morse-current-symbols");
+  const morseProgressFill = document.getElementById("morse-progress-fill");
+  const morseDecodedText = document.getElementById("morse-decoded-text");
+  const btnMorseSpeak = document.getElementById("btn-morse-speak");
+  const btnMorseClear = document.getElementById("btn-morse-clear");
+
   // Canvas Oscilloscope
   const canvas = document.getElementById("scopeCanvas");
   const ctx = canvas.getContext("2d");
@@ -277,6 +289,62 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `).join("");
     }
+
+    // Integrated Morse Telemetry & Cockpit Sync
+    const morseData = data.morse || {};
+    const isMorseMode = !!data.morse_mode;
+
+    if (morsePod) {
+      morsePod.classList.toggle("morse-active", isMorseMode);
+    }
+
+    if (morseStatusTag) {
+      if (isMorseMode) {
+        morseStatusTag.textContent = "COMM ACTIVE";
+        morseStatusTag.style.borderColor = "#00f0ff";
+        morseStatusTag.style.color = "#00f0ff";
+      } else {
+        morseStatusTag.textContent = "STANDBY";
+        morseStatusTag.style.borderColor = "";
+        morseStatusTag.style.color = "";
+      }
+    }
+
+    if (btnToggleMorse) {
+      btnToggleMorse.textContent = isMorseMode ? "DISABLE MORSE" : "ENABLE MORSE";
+      btnToggleMorse.classList.toggle("active-danger", isMorseMode);
+    }
+
+    const eyeState = (data.blink_active || morseData.is_blinking) ? "CLOSED" : "OPEN";
+    if (morseEyeState) {
+      morseEyeState.textContent = eyeState;
+      morseEyeState.classList.toggle("blinking-val", eyeState === "CLOSED");
+    }
+
+    const blinkDur = Number(morseData.blink_duration || data.blink_duration || 0);
+    if (morseBlinkDur) {
+      morseBlinkDur.textContent = `${blinkDur.toFixed(2)}s`;
+    }
+
+    if (morseCurrentSymbols) {
+      const sym = morseData.current_display || morseData.current_morse || "—";
+      morseCurrentSymbols.textContent = sym;
+    }
+
+    if (morseProgressFill) {
+      const pct = Math.min(100, (blinkDur / 1.0) * 100);
+      morseProgressFill.style.width = `${pct}%`;
+      morseProgressFill.classList.toggle("dash-mode", blinkDur >= (morseData.dot_threshold || 0.35));
+    }
+
+    if (morseDecodedText) {
+      const msg = morseData.decoded_message || "";
+      if (msg.trim().length > 0) {
+        morseDecodedText.textContent = msg;
+      } else {
+        morseDecodedText.innerHTML = '<span class="morse-placeholder">Awaiting blinks (Short = ·, Long = −)...</span>';
+      }
+    }
   }
 
   // 5. Native Browser Webcam Integration (For Fedora PipeWire / Wayland)
@@ -351,6 +419,47 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error("Failed to send command:", e);
     }
+  }
+
+  // 6.5. Morse Cockpit Controls (Toggle, Clear, Speak)
+  if (btnToggleMorse) {
+    btnToggleMorse.addEventListener("click", async () => {
+      try {
+        await fetch("/api/morse/toggle", { method: "POST" });
+      } catch (e) {
+        console.error("Failed to toggle Morse mode:", e);
+      }
+    });
+  }
+
+  if (btnMorseClear) {
+    btnMorseClear.addEventListener("click", async () => {
+      try {
+        await fetch("/api/morse/clear", { method: "POST" });
+      } catch (e) {
+        console.error("Failed to clear Morse message:", e);
+      }
+    });
+  }
+
+  if (btnMorseSpeak) {
+    btnMorseSpeak.addEventListener("click", async () => {
+      try {
+        const resp = await fetch("/api/morse/speak", { method: "POST" });
+        if (resp.ok) {
+          const res = await resp.json();
+          // Also trigger Web Speech API fallback in browser if available
+          if (res.spoken && "speechSynthesis" in window) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(res.spoken);
+            utter.rate = 1.0;
+            window.speechSynthesis.speak(utter);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to trigger TTS:", e);
+      }
+    });
   }
 
   // 7. Virtual D-Pad Click Handlers

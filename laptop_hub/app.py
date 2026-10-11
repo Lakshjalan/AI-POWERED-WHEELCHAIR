@@ -136,7 +136,13 @@ def trigger_jaw_clench():
     if now - trigger_jaw_clench.last_trigger > 0.8:
         trigger_jaw_clench.last_trigger = now
         system_state["clench_active"] = True
-        # Toggle car forward/stop
+
+        # Safety Isolation: In Morse communication mode, jaw clench is inhibited from driving the vehicle
+        if system_state.get("morse_mode", False):
+            threading.Timer(0.3, lambda: reset_clench()).start()
+            return
+
+        # Toggle car forward/stop in normal driving mode
         new_cmd = "F" if system_state["car_state"] == "STOP" else "S"
         dispatch_car_command(new_cmd, source="Piezo Jaw-Clench")
         threading.Timer(0.3, lambda: reset_clench()).start()
@@ -158,33 +164,60 @@ def vision_ai_thread():
     prev_blink_state = False
 
     while True:
+        loop_start = time.time()
         annotated_frame, telemetry = eye_tracker.process_frame()
 
         with state_lock:
             system_state["current_gaze"] = telemetry["gaze"]
             system_state["gaze_ratio"] = telemetry["gaze_ratio"]
-            # Multi-modal blink detection: Vision AI + EOG Voltage Spike (>750)
-            eog_spike = system_state.get("eog_value", 512) > 750
+
             camera_blink = telemetry["blink"]
-            current_blink = camera_blink or eog_spike
+            morse_mode = system_state.get("morse_mode", False)
+
+            # In normal mode, temple EOG voltage spikes can assist in detecting coarse blinks.
+            # In Morse mode, camera vision closure duration provides primary high-accuracy input.
+            if not morse_mode:
+                eog_spike = system_state.get("eog_value", 512) > 750
+                current_blink = camera_blink or eog_spike
+            else:
+                current_blink = camera_blink
 
             system_state["blink_active"] = current_blink
-            morse_mode = system_state.get("morse_mode", False)
+            system_state["blink_duration"] = telemetry.get("blink_duration", 0.0)
+            system_state["raw_ear"] = telemetry.get("raw_ear", 0.0)
+            system_state["ear_left"] = telemetry.get("ear_left", 0.0)
+            system_state["ear_right"] = telemetry.get("ear_right", 0.0)
+            system_state["smoothed_ear"] = telemetry.get("smoothed_ear", 0.0)
+            system_state["ear_baseline"] = telemetry.get("ear_baseline", 0.0)
+            system_state["ear_calibrated"] = telemetry.get("ear_calibrated", False)
+            system_state["effective_fps"] = telemetry.get("effective_fps", 30.0)
 
             # --- Morse Code Blink Communication ---
             if morse_mode:
-                # Detect blink transitions for morse decoder
-                if current_blink and not prev_blink_state:
+                # Direct event triggers from EyeTracker's multi-frame state machine
+                if telemetry.get("blink_event_start", False):
+                    morse_decoder.on_blink_start()
+                elif telemetry.get("blink_event_end", False):
+                    closure_dur = telemetry.get("blink_duration", 0.0)
+                    morse_decoder.on_blink_end(explicit_duration=closure_dur)
+                elif current_blink and not prev_blink_state:
                     morse_decoder.on_blink_start()
                 elif not current_blink and prev_blink_state:
-                    morse_decoder.on_blink_end()
+                    closure_dur = telemetry.get("blink_duration", 0.0)
+                    morse_decoder.on_blink_end(explicit_duration=closure_dur)
+
+                # MODE SAFETY GUARANTEE:
+                # When Morse mode is ON, vehicle driving commands are strictly blocked.
+                # If vehicle was moving when entering Morse mode, safely bring to a stop.
+                if system_state["car_state"] != "STOP" and system_state["car_state"] != "STOPPED":
+                    dispatch_car_command("S", source="Morse Safety Interlock")
             else:
                 # --- Normal Driving Mode ---
                 # AI Gaze Steering Decision
                 if config["ai_autopilot_enabled"]:
                     now = time.time()
                     # Double blink toggles forward/stop
-                    if telemetry["double_blink"] and config["blink_trigger_enabled"]:
+                    if telemetry.get("double_blink", False) and config["blink_trigger_enabled"]:
                         new_cmd = "F" if system_state["car_state"] == "STOP" else "S"
                         dispatch_car_command(new_cmd, source="AI Double-Blink")
 
@@ -207,7 +240,10 @@ def vision_ai_thread():
         except Exception:
             pass
 
-        time.sleep(0.033)  # ~30 FPS
+        # Dynamic frame pacing (target ~30 FPS without adding unnecessary lag)
+        elapsed = time.time() - loop_start
+        sleep_time = max(0.001, 0.033 - elapsed)
+        time.sleep(sleep_time)
 
 
 # --- CAR COMMUNICATION & PROXY ---
@@ -337,6 +373,11 @@ def get_telemetry():
             "current_gaze": system_state["current_gaze"],
             "gaze_ratio": system_state["gaze_ratio"],
             "blink_active": system_state["blink_active"],
+            "blink_duration": system_state.get("blink_duration", 0.0),
+            "raw_ear": system_state.get("raw_ear", 0.0),
+            "smoothed_ear": system_state.get("smoothed_ear", 0.0),
+            "ear_baseline": system_state.get("ear_baseline", 0.0),
+            "ear_calibrated": system_state.get("ear_calibrated", False),
             "clench_active": system_state["clench_active"],
             "last_command": system_state["last_command"],
             "command_log": system_state["command_log"][:10],
@@ -352,7 +393,10 @@ def toggle_morse_mode():
     with state_lock:
         system_state["morse_mode"] = not system_state.get("morse_mode", False)
         morse_decoder.enabled = system_state["morse_mode"]
-        if not system_state["morse_mode"]:
+        if system_state["morse_mode"]:
+            # Safety guarantee: vehicle stops immediately when Morse mode is engaged
+            dispatch_car_command("S", source="Morse Mode Safety Engagement")
+        else:
             morse_decoder.clear_message()
     return jsonify({"status": "ok", "morse_mode": system_state["morse_mode"]})
 
@@ -362,6 +406,20 @@ def clear_morse():
     """Clear the decoded Morse message buffer."""
     morse_decoder.clear_message()
     return jsonify({"status": "ok"})
+
+
+@app.route('/api/morse/config', methods=['POST'])
+def update_morse_config():
+    """Update Morse timing thresholds dynamically."""
+    data = request.json or {}
+    morse_decoder.update_timings(
+        dot_thresh=data.get("dot_threshold"),
+        char_gap=data.get("char_gap"),
+        word_gap=data.get("word_gap"),
+        speak_gap=data.get("speak_gap"),
+        min_blink=data.get("min_blink_duration")
+    )
+    return jsonify({"status": "ok", "morse_state": morse_decoder.get_state()})
 
 
 @app.route('/api/morse/speak', methods=['POST'])

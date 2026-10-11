@@ -774,6 +774,167 @@ body.obsidian-body {
   transform: translateX(4px);
 }
 
+/* Integrated Morse Cockpit Pod */
+.morse-cockpit-pod {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.morse-safety-notice {
+  display: none;
+  background: rgba(255, 75, 75, 0.12);
+  border: 1px solid rgba(255, 75, 75, 0.4);
+  color: #ff6b6b;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: var(--radius-subcard);
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.morse-cockpit-pod.morse-active .morse-safety-notice {
+  display: block;
+}
+
+.morse-telemetry-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 10px;
+}
+
+.morse-stat-pill {
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mst-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--on-surface-variant);
+  font-weight: 600;
+}
+
+.mst-val {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.mst-val.blinking-val {
+  color: #00f0ff;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+}
+
+.morse-progress-wrap {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: var(--surface-container-highest);
+  border-radius: var(--radius-pill);
+  overflow: visible;
+  margin-top: 2px;
+}
+
+.morse-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #ffffff;
+  border-radius: var(--radius-pill);
+  transition: width 0.04s linear;
+}
+
+.morse-progress-bar.dash-mode {
+  background: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.7);
+}
+
+.morse-threshold-marker {
+  position: absolute;
+  top: -16px;
+  left: 35%;
+  transform: translateX(-50%);
+  font-size: 0.58rem;
+  color: var(--outline);
+  pointer-events: none;
+}
+
+.morse-output-box {
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-subcard);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 72px;
+}
+
+.morse-output-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--on-surface-variant);
+  font-weight: 600;
+}
+
+.morse-text-stream {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  word-break: break-word;
+}
+
+.morse-placeholder {
+  color: var(--outline);
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+.morse-action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.morse-legend-crumbs {
+  display: flex;
+  gap: 10px;
+  font-size: 0.62rem;
+  color: var(--on-surface-variant);
+}
+
+.morse-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.pill-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-container-highest);
+  border: 1px solid var(--outline-variant);
+  color: var(--on-surface-variant);
+  transition: all 0.2s ease;
+}
+
+.pill-btn-icon:hover {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+}
+
 /* Controls Pod */
 .controls-grid {
   display: grid;

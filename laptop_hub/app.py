@@ -139,23 +139,14 @@ def sensor_acquisition_thread():
             with state_lock:
                 system_state["sensor_mode"] = "REAL"
             try:
-                # Read command bytes from EOG Arduino
+                # Read command bytes from Arduino (Piezo Jaw Clench only, EOG gaze ignored)
                 while arduino_sensor_serial.in_waiting > 0:
                     raw_byte = arduino_sensor_serial.read(1)
                     if len(raw_byte) == 1:
                         cmd = raw_byte[0]
                         with state_lock:
-                            if cmd == EOG_CMD_GAZE_LEFT:
-                                system_state["eog_gaze"] = "LEFT"
-                                eog_val = 512 + 180  # Saccade delta for display
-                            elif cmd == EOG_CMD_GAZE_RIGHT:
-                                system_state["eog_gaze"] = "RIGHT"
-                                eog_val = 512 - 180
-                            elif cmd == EOG_CMD_GAZE_CENTER:
-                                system_state["eog_gaze"] = "CENTER"
-                                eog_val = 512
-                            elif cmd in (EOG_CMD_STOP, EOG_CMD_GO):
-                                # Jaw clench detected: stop if moving, restart if stopped
+                            # Only handle Jaw Clench events (0x04 STOP, 0x05 GO)
+                            if cmd in (EOG_CMD_STOP, EOG_CMD_GO):
                                 piezo_val = 480
                                 trigger_jaw_clench()
             except Exception as ser_err:
@@ -292,41 +283,24 @@ def vision_ai_thread():
                 if system_state["car_state"] != "STOP" and system_state["car_state"] != "STOPPED":
                     dispatch_car_command("S", source="Morse Safety Interlock")
             else:
-                # --- Normal Driving Mode: CONTINUOUS GAZE STEERING ---
-                # Sensor Fusion: combine camera AI gaze + EOG Arduino gaze
-                # If EITHER source detects LEFT/RIGHT, we steer that direction.
-                # EOG takes priority over camera when Arduino is connected.
+                # --- Normal Driving Mode: Camera Eye Gaze Steering ---
+                # EOG removed: 100% camera eye gaze + piezo jaw clench
                 if config["ai_autopilot_enabled"]:
-                    now = time.time()
-                    camera_gaze = telemetry["gaze"]
-                    eog_gaze = system_state.get("eog_gaze", "CENTER")
+                    camera_gaze = telemetry.get("gaze", "CENTER")
 
-                    # Sensor fusion: EOG priority, camera fallback
-                    if eog_gaze != "CENTER":
-                        fused_gaze = eog_gaze   # EOG electrode signal is more deliberate
-                    else:
-                        fused_gaze = camera_gaze  # Camera AI for fine-grained tracking
-
-                    # Double blink toggles forward/stop
+                    # Double blink toggles Start (Forward) / Stop
                     if telemetry.get("double_blink", False) and config["blink_trigger_enabled"]:
                         new_cmd = "F" if system_state["car_state"] == "STOP" else "S"
                         dispatch_car_command(new_cmd, source="AI Double-Blink")
 
-                    # Continuous gaze steering (dispatch every 150ms while gaze is held)
-                    elif now - last_gaze_dispatch_time > 0.15:
-                        if fused_gaze == "LEFT":
-                            dispatch_car_command("L", source="Fused Gaze Left")
-                            last_gaze_dispatch_time = now
-                        elif fused_gaze == "RIGHT":
-                            dispatch_car_command("R", source="Fused Gaze Right")
-                            last_gaze_dispatch_time = now
-                        elif fused_gaze == "CENTER" and previous_gaze != "CENTER":
-                            # Gaze just returned to center → resume forward
-                            if system_state["car_state"] in ["TURNING LEFT", "TURNING RIGHT"]:
-                                dispatch_car_command("F", source="Fused Gaze Center (Resume)")
-                            last_gaze_dispatch_time = now
-
-                    previous_gaze = fused_gaze
+                    # While vehicle is started/active, Camera Eye Movement steers:
+                    elif system_state["car_state"] != "STOP":
+                        if camera_gaze == "LEFT" and system_state["car_state"] != "TURNING LEFT":
+                            dispatch_car_command("L", source="Camera Gaze Left")
+                        elif camera_gaze == "RIGHT" and system_state["car_state"] != "TURNING RIGHT":
+                            dispatch_car_command("R", source="Camera Gaze Right")
+                        elif camera_gaze == "CENTER" and system_state["car_state"] != "FORWARD":
+                            dispatch_car_command("F", source="Camera Gaze Center")
 
             prev_blink_state = current_blink
 
@@ -341,17 +315,43 @@ def vision_ai_thread():
         time.sleep(0.033)  # ~30 FPS
 
 
-# --- CAR COMMUNICATION & PROXY ---
+# --- CAR COMMUNICATION & CONTINUOUS MOTOR HEARTBEAT ---
+active_motor_cmd = "S"
+motor_heartbeat_lock = threading.Lock()
+
+def esp32_heartbeat_worker():
+    """Continuously feeds active commands every 90ms so the ESP32 watchdog does not stop motors."""
+    global active_motor_cmd
+    while True:
+        with motor_heartbeat_lock:
+            cmd = active_motor_cmd
+
+        if cmd != "S":
+            esp32_url = f"http://{config['esp32_ip']}:{config['esp32_port']}/control?cmd={cmd}"
+            try:
+                requests.get(esp32_url, timeout=0.25)
+                with state_lock:
+                    system_state["car_connected"] = True
+            except Exception:
+                with state_lock:
+                    system_state["car_connected"] = False
+            time.sleep(0.09)
+        else:
+            time.sleep(0.05)
+
+
 def dispatch_car_command(cmd_char, source="Manual"):
     """Dispatches a driving command to the ESP32 motor controller over WiFi."""
+    global active_motor_cmd
+    cmd_char = cmd_char.upper()
     with state_lock:
         system_state["last_command"] = cmd_char
         state_map = {"F": "FORWARD", "S": "STOP", "L": "TURNING LEFT", "R": "TURNING RIGHT", "B": "REVERSE"}
-        system_state["car_state"] = state_map.get(cmd_char.upper(), system_state["car_state"])
+        system_state["car_state"] = state_map.get(cmd_char, system_state["car_state"])
 
         log_entry = {
             "time": time.strftime("%H:%M:%S"),
-            "cmd": cmd_char.upper(),
+            "cmd": cmd_char,
             "source": source,
             "status": "DISPATCHED"
         }
@@ -359,11 +359,14 @@ def dispatch_car_command(cmd_char, source="Manual"):
         if len(system_state["command_log"]) > 25:
             system_state["command_log"].pop()
 
-    # Send over Wi-Fi directly to ESP32 motor controller
+    with motor_heartbeat_lock:
+        active_motor_cmd = cmd_char
+
+    # Send immediately on command change
     def _send_async():
         esp32_url = f"http://{config['esp32_ip']}:{config['esp32_port']}/control?cmd={cmd_char}"
         try:
-            requests.get(esp32_url, timeout=0.4)
+            requests.get(esp32_url, timeout=0.3)
             with state_lock:
                 system_state["car_connected"] = True
         except Exception:
@@ -568,13 +571,14 @@ if __name__ == '__main__':
     # Start background threads
     threading.Thread(target=sensor_acquisition_thread, daemon=True).start()
     threading.Thread(target=vision_ai_thread, daemon=True).start()
+    threading.Thread(target=esp32_heartbeat_worker, daemon=True).start()
 
     print("=" * 65)
     print("🚀 OCUSTEER TELEMETRY & COCKPIT HUB RUNNING (Fedora Linux)")
     print("🌐 Dashboard URL : http://127.0.0.1:5000")
     print("👁️ Vision AI     : Online (Webcam Eye & Blink Tracking)")
-    print("⚡ Sensor Intake : Online (Temple EOG & Piezo Clench)")
-    print("📡 Morse Blink   : Online (Blink-to-Speech Communication)")
+    print("⚡ Sensor Intake : Online (Piezo Clench Start/Stop)")
+    print("📡 ESP32 Motors  : Online (10.254.226.159)")
     print("=" * 65)
 
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

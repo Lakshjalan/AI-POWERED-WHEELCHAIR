@@ -34,16 +34,16 @@ const int SPEED_NORMAL     = 180;  // Cruising PWM (0-255)
 const int SPEED_TURN_FAST  = 210;  // Outer wheel PWM during turn
 const int SPEED_TURN_SLOW  = 60;   // Inner wheel PWM during turn
 const int SAFE_DISTANCE_CM = 30;   // Obstacle safety threshold
-const unsigned long TURN_DURATION_MS = 450; // Turn nudge duration
+// Turn duration removed: turns now persist until a new command arrives
 
 // --- STATE MACHINE ---
 enum CarState { STATE_STOP, STATE_FORWARD, STATE_REVERSE, STATE_TURNING_LEFT, STATE_TURNING_RIGHT };
 CarState currentState = STATE_STOP;
-CarState previousDriveState = STATE_STOP;
+// previousDriveState removed: turns no longer auto-revert
 
 unsigned long lastDistanceCheck = 0;
 unsigned long lastTelemetrySend = 0;
-unsigned long turnStartTime     = 0;
+// turnStartTime removed: turns persist indefinitely
 int currentDistanceCm           = 999;
 bool obstacleActive             = false;
 
@@ -147,18 +147,14 @@ void executeCommand(char cmd) {
       currentState = STATE_REVERSE;
       break;
 
-    case 'L': // Nudge Turn Left
+    case 'L': // Turn Left (persists until next command)
     case 'l':
-      previousDriveState = (currentState == STATE_FORWARD) ? STATE_FORWARD : STATE_STOP;
       currentState = STATE_TURNING_LEFT;
-      turnStartTime = millis();
       break;
 
-    case 'R': // Nudge Turn Right
+    case 'R': // Turn Right (persists until next command)
     case 'r':
-      previousDriveState = (currentState == STATE_FORWARD) ? STATE_FORWARD : STATE_STOP;
       currentState = STATE_TURNING_RIGHT;
-      turnStartTime = millis();
       break;
 
     default:
@@ -167,8 +163,6 @@ void executeCommand(char cmd) {
 }
 
 void updateState() {
-  unsigned long now = millis();
-
   switch (currentState) {
     case STATE_STOP:
       setMotorOutputs(0, 0, 0, 0);
@@ -187,19 +181,15 @@ void updateState() {
       break;
 
     case STATE_TURNING_LEFT:
-      // Turn left: right side moves fast forward, left side slow forward
+      // Turn left CONTINUOUSLY: right side fast, left side slow
+      // Persists until an explicit F (center gaze) or S (stop) command arrives
       setMotorOutputs(1, SPEED_TURN_SLOW, 1, SPEED_TURN_FAST);
-      if (now - turnStartTime >= TURN_DURATION_MS) {
-        currentState = previousDriveState; // Return to previous state
-      }
       break;
 
     case STATE_TURNING_RIGHT:
-      // Turn right: left side moves fast forward, right side slow forward
+      // Turn right CONTINUOUSLY: left side fast, right side slow
+      // Persists until an explicit F (center gaze) or S (stop) command arrives
       setMotorOutputs(1, SPEED_TURN_FAST, 1, SPEED_TURN_SLOW);
-      if (now - turnStartTime >= TURN_DURATION_MS) {
-        currentState = previousDriveState; // Return to previous state
-      }
       break;
   }
 }

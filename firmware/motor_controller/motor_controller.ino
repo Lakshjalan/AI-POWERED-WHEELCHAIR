@@ -2,11 +2,18 @@
  * ======================================================================================
  * OcuSteer - Motor & Safety Controller (Arduino Uno #2)
  * --------------------------------------------------------------------------------------
- * Receives biopotential steering & propulsion commands from Arduino #1 via Serial.
+ * Receives CONTINUOUS gaze state + clench events from Arduino #1 via Serial.
  * Manages:
  *  1. L298N Dual H-Bridge Motor Driver (4 DC Motors, Differential Steering)
  *  2. Front HC-SR04 Ultrasonic Collision Override (< 30 cm)
  *  3. Optional I2C 1602 LCD for real-time status telemetry
+ *
+ * Protocol (from Arduino #1):
+ *  0x01 = GAZE LEFT   → Turn left continuously
+ *  0x02 = GAZE RIGHT  → Turn right continuously
+ *  0x03 = GAZE CENTER → Resume forward (if vehicle is moving)
+ *  0x04 = STOP        → Emergency stop (double-clench)
+ *  0x05 = GO          → Start forward (single-clench)
  * ======================================================================================
  */
 
@@ -29,10 +36,11 @@ const int PIN_ECHO_FRONT   = 12;  // Front Ultrasonic Echo
 const int PIN_STATUS_LED   = 13;
 
 // --- COMMAND BYTE CONSTANTS ---
-const uint8_t CMD_LEFT     = 0x01;
-const uint8_t CMD_RIGHT    = 0x02;
-const uint8_t CMD_STOP     = 0x03;
-const uint8_t CMD_GO       = 0x04;
+const uint8_t CMD_GAZE_LEFT   = 0x01;
+const uint8_t CMD_GAZE_RIGHT  = 0x02;
+const uint8_t CMD_GAZE_CENTER = 0x03;
+const uint8_t CMD_STOP        = 0x04;
+const uint8_t CMD_GO          = 0x05;
 
 // --- MOTOR SPEEDS (0-255 PWM) ---
 const int SPEED_CRUISE     = 180;
@@ -43,10 +51,9 @@ const int SAFE_DISTANCE_CM = 30;
 // State management
 enum DriveState { STATE_STOPPED, STATE_FORWARD, STATE_TURNING_LEFT, STATE_TURNING_RIGHT };
 DriveState currentState = STATE_STOPPED;
+bool vehicleEnabled = false;  // Master enable: set by GO, cleared by STOP
 
 unsigned long lastUltrasonicCheck = 0;
-unsigned long turnStartTime       = 0;
-const unsigned long TURN_DURATION_MS = 600; // Duration of an incremental turn nudge
 int frontDistanceCm               = 999;
 bool obstacleDetected             = false;
 
@@ -81,7 +88,7 @@ void loop() {
   unsigned long currentMillis = millis();
 
   // 1. Process incoming command bytes from Arduino #1
-  if (Serial.available() > 0) {
+  while (Serial.available() > 0) {
     uint8_t incomingByte = Serial.read();
     handleCommand(incomingByte);
   }
@@ -94,14 +101,20 @@ void loop() {
     if (frontDistanceCm > 0 && frontDistanceCm < SAFE_DISTANCE_CM) {
       if (!obstacleDetected) {
         obstacleDetected = true;
-        // Collision emergency override: FORCE STOP
+        // Collision emergency override: FORCE STOP motors (but keep vehicleEnabled state)
         currentState = STATE_STOPPED;
         setMotors(0, 0, 0, 0);
         digitalWrite(PIN_STATUS_LED, HIGH);
       }
     } else {
-      obstacleDetected = false;
-      digitalWrite(PIN_STATUS_LED, LOW);
+      if (obstacleDetected) {
+        obstacleDetected = false;
+        // When obstacle clears, resume forward if vehicle is still enabled
+        if (vehicleEnabled) {
+          currentState = STATE_FORWARD;
+        }
+        digitalWrite(PIN_STATUS_LED, LOW);
+      }
     }
   }
 
@@ -110,28 +123,40 @@ void loop() {
 }
 
 void handleCommand(uint8_t cmd) {
-  // If obstacle is active, refuse GO commands
-  if (obstacleDetected && cmd == CMD_GO) {
-    return;
-  }
-
   switch (cmd) {
     case CMD_GO:
-      currentState = STATE_FORWARD;
+      // Single clench → enable vehicle and go forward
+      vehicleEnabled = true;
+      if (!obstacleDetected) {
+        currentState = STATE_FORWARD;
+      }
       break;
 
     case CMD_STOP:
+      // Double clench → full stop, disable vehicle
+      vehicleEnabled = false;
       currentState = STATE_STOPPED;
       break;
 
-    case CMD_LEFT:
-      currentState = STATE_TURNING_LEFT;
-      turnStartTime = millis();
+    case CMD_GAZE_LEFT:
+      // Continuous left gaze → turn left (only if vehicle is enabled)
+      if (vehicleEnabled && !obstacleDetected) {
+        currentState = STATE_TURNING_LEFT;
+      }
       break;
 
-    case CMD_RIGHT:
-      currentState = STATE_TURNING_RIGHT;
-      turnStartTime = millis();
+    case CMD_GAZE_RIGHT:
+      // Continuous right gaze → turn right (only if vehicle is enabled)
+      if (vehicleEnabled && !obstacleDetected) {
+        currentState = STATE_TURNING_RIGHT;
+      }
+      break;
+
+    case CMD_GAZE_CENTER:
+      // Gaze returned to center → resume forward (only if vehicle is enabled)
+      if (vehicleEnabled && !obstacleDetected) {
+        currentState = STATE_FORWARD;
+      }
       break;
 
     default:
@@ -140,8 +165,6 @@ void handleCommand(uint8_t cmd) {
 }
 
 void updateDriveLogic() {
-  unsigned long currentMillis = millis();
-
   switch (currentState) {
     case STATE_STOPPED:
       setMotors(0, 0, 0, 0);
@@ -153,19 +176,15 @@ void updateDriveLogic() {
       break;
 
     case STATE_TURNING_LEFT:
-      // Turn left: Right motor forward, left motor reduced/slow
+      // Turn left CONTINUOUSLY: Right motor forward fast, left motor slow
+      // No auto-revert timer — persists until CENTER or STOP command arrives
       setMotors(1, SPEED_TURN_INNER, 1, SPEED_TURN_OUTER);
-      if (currentMillis - turnStartTime >= TURN_DURATION_MS) {
-        currentState = STATE_FORWARD; // Resume cruising
-      }
       break;
 
     case STATE_TURNING_RIGHT:
-      // Turn right: Left motor forward, right motor reduced/slow
+      // Turn right CONTINUOUSLY: Left motor forward fast, right motor slow
+      // No auto-revert timer — persists until CENTER or STOP command arrives
       setMotors(1, SPEED_TURN_OUTER, 1, SPEED_TURN_INNER);
-      if (currentMillis - turnStartTime >= TURN_DURATION_MS) {
-        currentState = STATE_FORWARD; // Resume cruising
-      }
       break;
   }
 }

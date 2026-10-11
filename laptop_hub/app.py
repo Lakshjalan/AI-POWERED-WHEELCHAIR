@@ -32,9 +32,12 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 
 # System configuration & shared state
 config = {
-    "car_ip": "192.168.1.100",  # Set to Raspberry Pi IP
-    "car_port": 5001,
+    "car_ip": "192.168.1.100",      # Raspberry Pi IP (camera stream only)
+    "car_port": 5001,                # Pi camera server port
+    "esp32_ip": "192.168.1.101",     # ESP32 motor controller IP
+    "esp32_port": 80,                # ESP32 HTTP server port
     "sensor_serial_port": "/dev/ttyACM0",
+    "sensor_baud_rate": 9600,
     "ai_autopilot_enabled": True,
     "blink_trigger_enabled": True,
     "clench_trigger_enabled": True,
@@ -51,6 +54,7 @@ system_state = {
     "piezo_value": 45,
     "piezo_history": [45] * 60,
     "current_gaze": "CENTER",
+    "eog_gaze": "CENTER",       # Gaze state from EOG Arduino (command bytes)
     "gaze_ratio": 0.5,
     "blink_active": False,
     "clench_active": False,
@@ -66,10 +70,35 @@ arduino_sensor_serial = None
 
 
 # --- SENSOR INTAKE & SIMULATION THREAD ---
+# EOG Arduino Command Byte Protocol:
+#   0x01 = GAZE_LEFT    0x02 = GAZE_RIGHT   0x03 = GAZE_CENTER
+#   0x04 = STOP (double-clench)              0x05 = GO (single-clench)
+
+EOG_CMD_GAZE_LEFT   = 0x01
+EOG_CMD_GAZE_RIGHT  = 0x02
+EOG_CMD_GAZE_CENTER = 0x03
+EOG_CMD_STOP        = 0x04
+EOG_CMD_GO          = 0x05
+
 def sensor_acquisition_thread():
-    """Reads real EOG/Piezo values from Arduino #1 or generates realistic simulated biopotentials."""
+    """Reads command bytes from EOG Arduino #1 or generates realistic simulated biopotentials."""
     global arduino_sensor_serial, system_state
     sim_t = 0.0
+
+    # Try to open serial connection to EOG Arduino
+    try:
+        import serial
+        arduino_sensor_serial = serial.Serial(
+            config["sensor_serial_port"],
+            config.get("sensor_baud_rate", 9600),
+            timeout=0.05
+        )
+        time.sleep(2)  # Wait for Arduino DTR reset
+        print(f"\u2705 Connected to EOG Arduino on {config['sensor_serial_port']}")
+    except Exception as e:
+        print(f"\u26a0\ufe0f Could not open EOG serial: {e}")
+        print("Running in simulated sensor mode.")
+        arduino_sensor_serial = None
 
     while True:
         sim_t += 0.05
@@ -79,12 +108,34 @@ def sensor_acquisition_thread():
         # Try reading real serial hardware if available
         if arduino_sensor_serial and arduino_sensor_serial.is_open:
             try:
-                line = arduino_sensor_serial.readline().decode('utf-8', errors='ignore').strip()
-                if line:
-                    parts = line.split(',')
-                    if len(parts) >= 2:
-                        eog_val = int(parts[0])
-                        piezo_val = int(parts[1])
+                # Read command bytes from EOG Arduino
+                while arduino_sensor_serial.in_waiting > 0:
+                    raw_byte = arduino_sensor_serial.read(1)
+                    if len(raw_byte) == 1:
+                        cmd = raw_byte[0]
+                        with state_lock:
+                            if cmd == EOG_CMD_GAZE_LEFT:
+                                system_state["eog_gaze"] = "LEFT"
+                                eog_val = 512 + 180  # Simulate high EOG for telemetry display
+                            elif cmd == EOG_CMD_GAZE_RIGHT:
+                                system_state["eog_gaze"] = "RIGHT"
+                                eog_val = 512 - 180
+                            elif cmd == EOG_CMD_GAZE_CENTER:
+                                system_state["eog_gaze"] = "CENTER"
+                                eog_val = 512
+                            elif cmd == EOG_CMD_STOP:
+                                # Double-clench detected by Arduino → STOP
+                                system_state["clench_active"] = True
+                                dispatch_car_command("S", source="EOG Double-Clench STOP")
+                                threading.Timer(0.3, lambda: reset_clench()).start()
+                                piezo_val = 480
+                            elif cmd == EOG_CMD_GO:
+                                # Single-clench detected by Arduino → GO
+                                system_state["clench_active"] = True
+                                if not system_state.get("morse_mode", False):
+                                    dispatch_car_command("F", source="EOG Single-Clench GO")
+                                threading.Timer(0.3, lambda: reset_clench()).start()
+                                piezo_val = 480
             except Exception:
                 pass
         else:
@@ -120,9 +171,11 @@ def sensor_acquisition_thread():
             system_state["piezo_history"].pop(0)
             system_state["piezo_history"].append(piezo_val)
 
-            # Check piezo clench threshold (>350 ADC)
-            if piezo_val > 350 and config["clench_trigger_enabled"]:
-                trigger_jaw_clench()
+            # In simulation mode only: check piezo clench threshold (>350 ADC)
+            # When real Arduino is connected, clenches arrive as command bytes above
+            if not (arduino_sensor_serial and arduino_sensor_serial.is_open):
+                if piezo_val > 350 and config["clench_trigger_enabled"]:
+                    trigger_jaw_clench()
 
         time.sleep(0.03)  # ~33 Hz update
 
@@ -160,8 +213,9 @@ jpeg_lock = threading.Lock()
 def vision_ai_thread():
     """Continuously runs the EyeTracker and evaluates driving gestures."""
     global latest_driver_jpeg, system_state
-    last_gaze_cmd_time = 0
+    last_gaze_dispatch_time = 0
     prev_blink_state = False
+    previous_gaze = "CENTER"
 
     while True:
         annotated_frame, telemetry = eye_tracker.process_frame()
@@ -204,23 +258,41 @@ def vision_ai_thread():
                 if system_state["car_state"] != "STOP" and system_state["car_state"] != "STOPPED":
                     dispatch_car_command("S", source="Morse Safety Interlock")
             else:
-                # --- Normal Driving Mode ---
-                # AI Gaze Steering Decision
+                # --- Normal Driving Mode: CONTINUOUS GAZE STEERING ---
+                # Sensor Fusion: combine camera AI gaze + EOG Arduino gaze
+                # If EITHER source detects LEFT/RIGHT, we steer that direction.
+                # EOG takes priority over camera when Arduino is connected.
                 if config["ai_autopilot_enabled"]:
                     now = time.time()
+                    camera_gaze = telemetry["gaze"]
+                    eog_gaze = system_state.get("eog_gaze", "CENTER")
+
+                    # Sensor fusion: EOG priority, camera fallback
+                    if eog_gaze != "CENTER":
+                        fused_gaze = eog_gaze   # EOG electrode signal is more deliberate
+                    else:
+                        fused_gaze = camera_gaze  # Camera AI for fine-grained tracking
+
                     # Double blink toggles forward/stop
                     if telemetry.get("double_blink", False) and config["blink_trigger_enabled"]:
                         new_cmd = "F" if system_state["car_state"] == "STOP" else "S"
                         dispatch_car_command(new_cmd, source="AI Double-Blink")
 
-                    # Left / Right Glance Nudge (with 0.6s cooldown)
-                    elif now - last_gaze_cmd_time > 0.6:
-                        if telemetry["gaze"] == "LEFT":
-                            dispatch_car_command("L", source="AI Gaze Left")
-                            last_gaze_cmd_time = now
-                        elif telemetry["gaze"] == "RIGHT":
-                            dispatch_car_command("R", source="AI Gaze Right")
-                            last_gaze_cmd_time = now
+                    # Continuous gaze steering (dispatch every 150ms while gaze is held)
+                    elif now - last_gaze_dispatch_time > 0.15:
+                        if fused_gaze == "LEFT":
+                            dispatch_car_command("L", source="Fused Gaze Left")
+                            last_gaze_dispatch_time = now
+                        elif fused_gaze == "RIGHT":
+                            dispatch_car_command("R", source="Fused Gaze Right")
+                            last_gaze_dispatch_time = now
+                        elif fused_gaze == "CENTER" and previous_gaze != "CENTER":
+                            # Gaze just returned to center → resume forward
+                            if system_state["car_state"] in ["TURNING LEFT", "TURNING RIGHT"]:
+                                dispatch_car_command("F", source="Fused Gaze Center (Resume)")
+                            last_gaze_dispatch_time = now
+
+                    previous_gaze = fused_gaze
 
             prev_blink_state = current_blink
 
@@ -237,7 +309,7 @@ def vision_ai_thread():
 
 # --- CAR COMMUNICATION & PROXY ---
 def dispatch_car_command(cmd_char, source="Manual"):
-    """Dispatches a command to the Raspberry Pi on the car (or simulates locally)."""
+    """Dispatches a driving command to the ESP32 motor controller over WiFi."""
     with state_lock:
         system_state["last_command"] = cmd_char
         state_map = {"F": "FORWARD", "S": "STOP", "L": "TURNING LEFT", "R": "TURNING RIGHT", "B": "REVERSE"}
@@ -253,11 +325,11 @@ def dispatch_car_command(cmd_char, source="Manual"):
         if len(system_state["command_log"]) > 25:
             system_state["command_log"].pop()
 
-    # Send over Wi-Fi to Raspberry Pi
+    # Send over Wi-Fi directly to ESP32 motor controller
     def _send_async():
-        car_url = f"http://{config['car_ip']}:{config['car_port']}/control?cmd={cmd_char}"
+        esp32_url = f"http://{config['esp32_ip']}:{config['esp32_port']}/control?cmd={cmd_char}"
         try:
-            requests.get(car_url, timeout=0.4)
+            requests.get(esp32_url, timeout=0.4)
             with state_lock:
                 system_state["car_connected"] = True
         except Exception:
@@ -360,6 +432,7 @@ def get_telemetry():
             "piezo_value": system_state["piezo_value"],
             "piezo_history": system_state["piezo_history"],
             "current_gaze": system_state["current_gaze"],
+            "eog_gaze": system_state.get("eog_gaze", "CENTER"),
             "gaze_ratio": system_state["gaze_ratio"],
             "blink_active": system_state["blink_active"],
             "clench_active": system_state["clench_active"],

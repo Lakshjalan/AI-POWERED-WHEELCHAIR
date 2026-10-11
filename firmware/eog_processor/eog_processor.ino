@@ -7,10 +7,14 @@
  *  2. Mechanical Jaw Clench via MEAS Piezo Vibration Sensor on A1 (Start/Stop)
  *
  * Output Protocol (UART 9600 baud to Motor Controller):
- *  0x01 = TURN LEFT
- *  0x02 = TURN RIGHT
- *  0x03 = STOP / BRAKE
- *  0x04 = FORWARD / GO
+ *  CONTINUOUS GAZE STATE (sent every ~100ms):
+ *   0x01 = GAZE LEFT   (user is currently looking left)
+ *   0x02 = GAZE RIGHT  (user is currently looking right)
+ *   0x03 = GAZE CENTER (user is looking straight ahead)
+ *
+ *  CLENCH EVENTS (sent once on detection):
+ *   0x04 = STOP         (double-clench detected: two clenches within 800ms)
+ *   0x05 = GO / START   (single clench with no second clench within 800ms)
  * ======================================================================================
  */
 
@@ -22,24 +26,31 @@ const int PIN_LO_PLUS         = 3;   // AD8232 Lead-Off positive detect
 const int PIN_STATUS_LED      = 13;  // Onboard LED indicator
 
 // --- COMMAND BYTE CONSTANTS ---
-const uint8_t CMD_LEFT        = 0x01;
-const uint8_t CMD_RIGHT       = 0x02;
-const uint8_t CMD_STOP        = 0x03;
-const uint8_t CMD_GO          = 0x04;
-const uint8_t CMD_CALIBRATE   = 0x05;
+const uint8_t CMD_GAZE_LEFT   = 0x01;
+const uint8_t CMD_GAZE_RIGHT  = 0x02;
+const uint8_t CMD_GAZE_CENTER = 0x03;
+const uint8_t CMD_STOP        = 0x04;
+const uint8_t CMD_GO          = 0x05;
 
 // --- SIGNAL PROCESSING PARAMETERS ---
 const unsigned long SAMPLE_INTERVAL_MS = 10;   // 100 Hz sampling rate
 const int FILTER_WINDOW_SIZE           = 8;    // Moving average filter window
-const unsigned long MIN_GLANCE_DUR_MS  = 160;  // Minimum duration for deliberate saccade
-const unsigned long MAX_GLANCE_DUR_MS  = 600;  // Maximum duration (above this = electrode shift)
-const unsigned long COOLDOWN_MS        = 400;  // Cooldown between successive commands
+const unsigned long GAZE_REPORT_INTERVAL_MS = 100; // Report gaze state every 100ms
+
+// Gaze hysteresis: require sustained delta before committing to LEFT/RIGHT
+// Uses separate enter/exit thresholds to prevent oscillation at boundary
+const unsigned long GAZE_CONFIRM_MS    = 80;   // Must sustain for 80ms before switching state
 const unsigned long BLINK_WINDOW_MS    = 180;  // Artifact rejection window
+
+// --- DOUBLE-CLENCH DETECTION PARAMETERS ---
+const unsigned long CLENCH_DEBOUNCE_MS       = 300;  // Minimum gap between individual clenches
+const unsigned long DOUBLE_CLENCH_WINDOW_MS  = 800;  // Max gap between two clenches to count as double
+const unsigned long SINGLE_CLENCH_CONFIRM_MS = 900;  // Wait this long after 1st clench; if no 2nd, it's a single
 
 // Default thresholds (dynamically updated during calibration)
 int baselineEOG        = 512;
-int leftThresholdDelta = 120;  // +delta above baseline for Left Glance
-int rightThresholdDelta= 120;  // -delta below baseline for Right Glance
+int leftThresholdDelta = 120;  // +delta above baseline for Left Gaze
+int rightThresholdDelta= 120;  // -delta below baseline for Right Gaze
 int piezoThreshold     = 350;  // Piezo spike threshold for jaw clench
 
 // Circular buffer for moving average
@@ -47,15 +58,22 @@ int filterBuffer[FILTER_WINDOW_SIZE];
 int filterIndex = 0;
 long filterSum = 0;
 
-// State tracking variables
-unsigned long lastSampleTime   = 0;
-unsigned long glanceStartTime  = 0;
-unsigned long lastCommandTime  = 0;
-unsigned long lastPiezoTime    = 0;
-bool candidateLeft             = false;
-bool candidateRight            = false;
-bool sawOppositePolarity       = false; // For blink rejection
-bool vehicleMoving             = false; // Local state tracker
+// --- STATE TRACKING ---
+unsigned long lastSampleTime     = 0;
+unsigned long lastGazeReportTime = 0;
+unsigned long lastPiezoTime      = 0;
+
+// Current continuous gaze state
+enum GazeState { GAZE_CENTER, GAZE_LEFT, GAZE_RIGHT };
+GazeState currentGaze     = GAZE_CENTER;
+GazeState candidateGaze   = GAZE_CENTER;
+unsigned long candidateStartTime = 0;
+
+// Clench state machine
+unsigned long firstClenchTime  = 0;
+bool awaitingSecondClench      = false;
+bool singleClenchDispatched    = false;
+bool vehicleMoving             = false;
 
 // Function Prototypes
 int readFilteredEOG();
@@ -97,93 +115,106 @@ void loop() {
   lastSampleTime = currentMillis;
 
   // Check if electrodes are disconnected (Lead-Off detection)
-  if (digitalRead(PIN_LO_PLUS) == 1 || digitalRead(PIN_LO_MINUS) == 1) {
+  bool leadsOff = (digitalRead(PIN_LO_PLUS) == 1 || digitalRead(PIN_LO_MINUS) == 1);
+  if (leadsOff) {
     digitalWrite(PIN_STATUS_LED, LOW);
-    // Electrodes off: safety reset
-    candidateLeft = false;
-    candidateRight = false;
-    return;
+    currentGaze = GAZE_CENTER;
+    candidateGaze = GAZE_CENTER;
   }
 
-  // 1. Acquire filtered EOG and raw Piezo readings
-  int filteredEOG = readFilteredEOG();
+  // =====================================================================
+  // 1. PIEZO JAW-CLENCH DETECTION (Double-Clench = STOP, Single = GO)
+  // =====================================================================
   int piezoVal = analogRead(PIN_PIEZO_INPUT);
 
-  // 2. Jaw-Clench Detection (MEAS Piezo)
-  // Jaw clenches provide an unambiguous binary toggle for GO / STOP
-  if (piezoVal > piezoThreshold) {
-    if (currentMillis - lastCommandTime > COOLDOWN_MS) {
-      lastPiezoTime = currentMillis;
-      vehicleMoving = !vehicleMoving;
-      uint8_t cmd = vehicleMoving ? CMD_GO : CMD_STOP;
-      transmitCommand(cmd);
-      lastCommandTime = currentMillis;
+  if (piezoVal > piezoThreshold && (currentMillis - lastPiezoTime > CLENCH_DEBOUNCE_MS)) {
+    lastPiezoTime = currentMillis;
 
-      // Reset any active glance candidates to prevent cross-talk
-      candidateLeft = false;
-      candidateRight = false;
-      return;
+    if (awaitingSecondClench) {
+      // Second clench arrived within the window → DOUBLE-CLENCH → STOP
+      awaitingSecondClench = false;
+      singleClenchDispatched = false;
+      vehicleMoving = false;
+      transmitCommand(CMD_STOP);
+    } else {
+      // First clench detected, start waiting for a possible second
+      firstClenchTime = currentMillis;
+      awaitingSecondClench = true;
+      singleClenchDispatched = false;
     }
   }
 
-  // 3. Artifact Rejection: Suppress EOG if facial muscle / jaw movement happened recently
-  if (currentMillis - lastPiezoTime < 150) {
-    candidateLeft = false;
-    candidateRight = false;
-    return;
+  // If we're waiting for a second clench and the window expires → it was a single clench → GO
+  if (awaitingSecondClench && !singleClenchDispatched) {
+    if (currentMillis - firstClenchTime > SINGLE_CLENCH_CONFIRM_MS) {
+      awaitingSecondClench = false;
+      singleClenchDispatched = false;
+      vehicleMoving = true;
+      transmitCommand(CMD_GO);
+    }
   }
 
-  // 4. Horizontal EOG Saccade Detection
-  int delta = filteredEOG - baselineEOG;
+  // Suppress EOG processing briefly after piezo spike (artifact rejection)
+  if (currentMillis - lastPiezoTime < BLINK_WINDOW_MS) {
+    // Still report current gaze state even during suppression
+    goto report_gaze;
+  }
 
-  // --- CANDIDATE DETECTION ---
-  if (delta > leftThresholdDelta) {
-    // Potential Left Glance
-    if (!candidateLeft && !candidateRight) {
-      candidateLeft = true;
-      glanceStartTime = currentMillis;
-      sawOppositePolarity = false;
-    } else if (candidateRight) {
-      // Swung from Right to Left rapidly -> Blink artifact!
-      sawOppositePolarity = true;
-    }
-  } else if (delta < -rightThresholdDelta) {
-    // Potential Right Glance
-    if (!candidateRight && !candidateLeft) {
-      candidateRight = true;
-      glanceStartTime = currentMillis;
-      sawOppositePolarity = false;
-    } else if (candidateLeft) {
-      // Swung from Left to Right rapidly -> Blink artifact!
-      sawOppositePolarity = true;
-    }
-  } else {
-    // Signal returned back to resting baseline zone
-    if (candidateLeft || candidateRight) {
-      unsigned long duration = currentMillis - glanceStartTime;
+  // =====================================================================
+  // 2. CONTINUOUS GAZE STATE DETECTION (EOG)
+  // =====================================================================
+  if (!leadsOff) {
+    int filteredEOG = readFilteredEOG();
+    int delta = filteredEOG - baselineEOG;
 
-      // Validate duration and ensure it wasn't a biphasic blink artifact
-      if (!sawOppositePolarity && duration >= MIN_GLANCE_DUR_MS && duration <= MAX_GLANCE_DUR_MS) {
-        if (currentMillis - lastCommandTime > COOLDOWN_MS) {
-          if (candidateLeft) {
-            transmitCommand(CMD_LEFT);
-          } else if (candidateRight) {
-            transmitCommand(CMD_RIGHT);
-          }
-          lastCommandTime = currentMillis;
+    // Determine instantaneous gaze direction from EOG delta
+    GazeState instantGaze;
+    if (delta > leftThresholdDelta) {
+      instantGaze = GAZE_LEFT;
+    } else if (delta < -rightThresholdDelta) {
+      instantGaze = GAZE_RIGHT;
+    } else {
+      instantGaze = GAZE_CENTER;
+    }
+
+    // Hysteresis state machine: require sustained direction before committing
+    if (instantGaze != currentGaze) {
+      // Direction changed from current committed state
+      if (instantGaze == candidateGaze) {
+        // Same candidate direction sustained, check if long enough
+        if (currentMillis - candidateStartTime >= GAZE_CONFIRM_MS) {
+          currentGaze = candidateGaze;
         }
+      } else {
+        // New candidate direction, start timer
+        candidateGaze = instantGaze;
+        candidateStartTime = currentMillis;
       }
+    } else {
+      // Still in the same committed state, reset candidate
+      candidateGaze = currentGaze;
+    }
 
-      // Reset candidate flags
-      candidateLeft = false;
-      candidateRight = false;
-      sawOppositePolarity = false;
+    // Slow adaptive baseline tracking when resting at center
+    if (currentGaze == GAZE_CENTER && abs(delta) < 40) {
+      baselineEOG = (baselineEOG * 999 + filteredEOG) / 1000;
     }
   }
 
-  // Slow adaptive baseline tracking when resting
-  if (!candidateLeft && !candidateRight && abs(delta) < 40) {
-    baselineEOG = (baselineEOG * 999 + filteredEOG) / 1000;
+  // =====================================================================
+  // 3. PERIODIC GAZE STATE REPORT (every 100ms)
+  // =====================================================================
+report_gaze:
+  if (currentMillis - lastGazeReportTime >= GAZE_REPORT_INTERVAL_MS) {
+    lastGazeReportTime = currentMillis;
+
+    uint8_t gazeCmd;
+    switch (currentGaze) {
+      case GAZE_LEFT:   gazeCmd = CMD_GAZE_LEFT;   break;
+      case GAZE_RIGHT:  gazeCmd = CMD_GAZE_RIGHT;  break;
+      default:          gazeCmd = CMD_GAZE_CENTER;  break;
+    }
+    transmitCommand(gazeCmd);
   }
 }
 

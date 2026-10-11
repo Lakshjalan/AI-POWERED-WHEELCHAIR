@@ -164,6 +164,7 @@ def vision_ai_thread():
     prev_blink_state = False
 
     while True:
+        loop_start = time.time()
         annotated_frame, telemetry = eye_tracker.process_frame()
 
         with state_lock:
@@ -183,6 +184,13 @@ def vision_ai_thread():
 
             system_state["blink_active"] = current_blink
             system_state["blink_duration"] = telemetry.get("blink_duration", 0.0)
+            system_state["raw_ear"] = telemetry.get("raw_ear", 0.0)
+            system_state["ear_left"] = telemetry.get("ear_left", 0.0)
+            system_state["ear_right"] = telemetry.get("ear_right", 0.0)
+            system_state["smoothed_ear"] = telemetry.get("smoothed_ear", 0.0)
+            system_state["ear_baseline"] = telemetry.get("ear_baseline", 0.0)
+            system_state["ear_calibrated"] = telemetry.get("ear_calibrated", False)
+            system_state["effective_fps"] = telemetry.get("effective_fps", 30.0)
 
             # --- Morse Code Blink Communication ---
             if morse_mode:
@@ -232,7 +240,10 @@ def vision_ai_thread():
         except Exception:
             pass
 
-        time.sleep(0.033)  # ~30 FPS
+        # Dynamic frame pacing (target ~30 FPS without adding unnecessary lag)
+        elapsed = time.time() - loop_start
+        sleep_time = max(0.001, 0.033 - elapsed)
+        time.sleep(sleep_time)
 
 
 # --- CAR COMMUNICATION & PROXY ---
@@ -362,6 +373,11 @@ def get_telemetry():
             "current_gaze": system_state["current_gaze"],
             "gaze_ratio": system_state["gaze_ratio"],
             "blink_active": system_state["blink_active"],
+            "blink_duration": system_state.get("blink_duration", 0.0),
+            "raw_ear": system_state.get("raw_ear", 0.0),
+            "smoothed_ear": system_state.get("smoothed_ear", 0.0),
+            "ear_baseline": system_state.get("ear_baseline", 0.0),
+            "ear_calibrated": system_state.get("ear_calibrated", False),
             "clench_active": system_state["clench_active"],
             "last_command": system_state["last_command"],
             "command_log": system_state["command_log"][:10],

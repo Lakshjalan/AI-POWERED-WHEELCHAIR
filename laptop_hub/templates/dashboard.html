@@ -34,10 +34,10 @@
         <span class="pill-key">AI TRACKER</span>
         <span class="pill-val font-mono" id="val-ai-status">ACTIVE</span>
       </div>
-      <div class="pill-chip">
-        <span class="pill-dot dot-online"></span>
+      <div class="pill-chip" id="chip-sensor-status">
+        <span class="pill-dot dot-warning" id="dot-sensor-status"></span>
         <span class="pill-key">BIOSENSORS</span>
-        <span class="pill-val font-mono" id="val-sensor-status">SYNCED</span>
+        <span class="pill-val font-mono" id="val-sensor-status">SIMULATED</span>
       </div>
       <div class="pill-chip clock-pill font-mono" id="hud-clock">00:00:00</div>
     </div>
@@ -177,7 +177,15 @@
           <div class="scope-legend font-mono">
             <span class="legend-pill eog-legend">EOG (A0)</span>
             <span class="legend-pill piezo-legend">PIEZO (A1)</span>
+            <span class="legend-pill sensor-mode-badge mode-simulated" id="badge-sensor-mode" title="Biosignal Intake Hardware Status">
+              <span class="sensor-mode-dot"></span>
+              <span id="txt-sensor-mode">SIMULATED DATA</span>
+            </span>
           </div>
+        </div>
+        <div class="sensor-status-strip font-mono" id="sensor-status-strip">
+          <span class="status-strip-icon" id="sensor-strip-icon">⚡</span>
+          <span class="status-strip-text" id="sensor-strip-text">DATA SOURCE: SIMULATED (SYNTHETIC NOISE)</span>
         </div>
         <div class="oscilloscope-wrap">
           <canvas id="scopeCanvas" width="600" height="120"></canvas>

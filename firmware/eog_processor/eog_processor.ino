@@ -12,9 +12,9 @@
  *   0x02 = GAZE RIGHT  (user is currently looking right)
  *   0x03 = GAZE CENTER (user is looking straight ahead)
  *
- *  CLENCH EVENTS (sent once on detection):
- *   0x04 = STOP         (double-clench detected: two clenches within 800ms)
- *   0x05 = GO / START   (single clench with no second clench within 800ms)
+ *  CLENCH TOGGLE (sent on each jaw clench):
+ *   0x04 = STOP         (if vehicle was moving -> immediate stop)
+ *   0x05 = RESTART / GO (if vehicle was stopped -> resume forward)
  * ======================================================================================
  */
 
@@ -42,10 +42,8 @@ const unsigned long GAZE_REPORT_INTERVAL_MS = 100; // Report gaze state every 10
 const unsigned long GAZE_CONFIRM_MS    = 80;   // Must sustain for 80ms before switching state
 const unsigned long BLINK_WINDOW_MS    = 180;  // Artifact rejection window
 
-// --- DOUBLE-CLENCH DETECTION PARAMETERS ---
-const unsigned long CLENCH_DEBOUNCE_MS       = 300;  // Minimum gap between individual clenches
-const unsigned long DOUBLE_CLENCH_WINDOW_MS  = 800;  // Max gap between two clenches to count as double
-const unsigned long SINGLE_CLENCH_CONFIRM_MS = 900;  // Wait this long after 1st clench; if no 2nd, it's a single
+// --- JAW-CLENCH TOGGLE PARAMETERS ---
+const unsigned long CLENCH_DEBOUNCE_MS = 500;  // Debounce to prevent double-triggering from 1 clench
 
 // Default thresholds (dynamically updated during calibration)
 int baselineEOG        = 512;
@@ -69,11 +67,8 @@ GazeState currentGaze     = GAZE_CENTER;
 GazeState candidateGaze   = GAZE_CENTER;
 unsigned long candidateStartTime = 0;
 
-// Clench state machine
-unsigned long firstClenchTime  = 0;
-bool awaitingSecondClench      = false;
-bool singleClenchDispatched    = false;
-bool vehicleMoving             = false;
+// Clench toggle state: false = STOPPED, true = MOVING
+bool vehicleMoving = false;
 
 // Function Prototypes
 int readFilteredEOG();
@@ -123,34 +118,19 @@ void loop() {
   }
 
   // =====================================================================
-  // 1. PIEZO JAW-CLENCH DETECTION (Double-Clench = STOP, Single = GO)
+  // 1. PIEZO JAW-CLENCH DETECTION (Toggle: Stop if moving, Restart if stopped)
   // =====================================================================
   int piezoVal = analogRead(PIN_PIEZO_INPUT);
 
   if (piezoVal > piezoThreshold && (currentMillis - lastPiezoTime > CLENCH_DEBOUNCE_MS)) {
     lastPiezoTime = currentMillis;
+    vehicleMoving = !vehicleMoving;
 
-    if (awaitingSecondClench) {
-      // Second clench arrived within the window → DOUBLE-CLENCH → STOP
-      awaitingSecondClench = false;
-      singleClenchDispatched = false;
-      vehicleMoving = false;
-      transmitCommand(CMD_STOP);
+    // Toggle: if vehicle was running -> STOP; if stopped -> RESTART (GO)
+    if (vehicleMoving) {
+      transmitCommand(CMD_GO);    // 0x05: Restart forward
     } else {
-      // First clench detected, start waiting for a possible second
-      firstClenchTime = currentMillis;
-      awaitingSecondClench = true;
-      singleClenchDispatched = false;
-    }
-  }
-
-  // If we're waiting for a second clench and the window expires → it was a single clench → GO
-  if (awaitingSecondClench && !singleClenchDispatched) {
-    if (currentMillis - firstClenchTime > SINGLE_CLENCH_CONFIRM_MS) {
-      awaitingSecondClench = false;
-      singleClenchDispatched = false;
-      vehicleMoving = true;
-      transmitCommand(CMD_GO);
+      transmitCommand(CMD_STOP);  // 0x04: Immediate stop
     }
   }
 

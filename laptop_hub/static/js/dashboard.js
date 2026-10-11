@@ -43,6 +43,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const barPiezo = document.getElementById("bar-piezo");
   const commandLogList = document.getElementById("command-log-list");
 
+  // Sensor Source & Mode References
+  const badgeSensorMode = document.getElementById("badge-sensor-mode");
+  const txtSensorMode = document.getElementById("txt-sensor-mode");
+  const sensorStatusStrip = document.getElementById("sensor-status-strip");
+  const sensorStripText = document.getElementById("sensor-strip-text");
+  const sensorStripIcon = document.getElementById("sensor-strip-icon");
+  const valSensorStatus = document.getElementById("val-sensor-status");
+  const dotSensorStatus = document.getElementById("dot-sensor-status");
+
   // Morse Cockpit References
   const morsePod = document.querySelector(".morse-cockpit-pod");
   const morseStatusTag = document.getElementById("morse-status-tag");
@@ -277,6 +286,43 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (data.piezo_history && data.piezo_history.length > 0) {
       piezoHistory = data.piezo_history;
+    }
+
+    // Sensor Hardware Source Mode (REAL vs SIMULATED)
+    const isRealSensor = data.sensor_mode === "REAL";
+    const sensorPort = data.sensor_port || "/dev/ttyACM0";
+
+    if (badgeSensorMode && txtSensorMode) {
+      if (isRealSensor) {
+        badgeSensorMode.classList.remove("mode-simulated");
+        badgeSensorMode.classList.add("mode-real");
+        txtSensorMode.textContent = "REAL HARDWARE";
+      } else {
+        badgeSensorMode.classList.remove("mode-real");
+        badgeSensorMode.classList.add("mode-simulated");
+        txtSensorMode.textContent = "SIMULATED DATA";
+      }
+    }
+
+    if (sensorStatusStrip && sensorStripText && sensorStripIcon) {
+      if (isRealSensor) {
+        sensorStatusStrip.classList.remove("strip-simulated");
+        sensorStatusStrip.classList.add("strip-real");
+        sensorStripIcon.textContent = "🟢";
+        sensorStripText.textContent = `LIVE BIOSIGNALS: ARDUINO CONNECTED ON ${sensorPort} (REAL DATA)`;
+      } else {
+        sensorStatusStrip.classList.remove("strip-real");
+        sensorStatusStrip.classList.add("strip-simulated");
+        sensorStripIcon.textContent = "⚡";
+        sensorStripText.textContent = `DATA SOURCE: SIMULATED (PORT ${sensorPort} OFFLINE / BUSY)`;
+      }
+    }
+
+    if (valSensorStatus) {
+      valSensorStatus.textContent = isRealSensor ? "REAL (USB)" : "SIMULATED";
+    }
+    if (dotSensorStatus) {
+      dotSensorStatus.className = isRealSensor ? "pill-dot dot-online" : "pill-dot dot-warning";
     }
 
     // Dispatch Log

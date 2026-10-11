@@ -60,7 +60,9 @@ system_state = {
     "clench_active": False,
     "last_command": "STOP",
     "command_log": [],
-    "morse_mode": False
+    "morse_mode": False,
+    "sensor_mode": "SIMULATED",  # "REAL" or "SIMULATED"
+    "sensor_port": "/dev/ttyACM0"
 }
 
 state_lock = threading.RLock()
@@ -84,6 +86,7 @@ def sensor_acquisition_thread():
     """Reads command bytes from EOG Arduino #1 or generates realistic simulated biopotentials."""
     global arduino_sensor_serial, system_state
     sim_t = 0.0
+    last_reconnect_attempt = 0.0
 
     # Try to open serial connection to EOG Arduino
     try:
@@ -93,11 +96,16 @@ def sensor_acquisition_thread():
             config.get("sensor_baud_rate", 9600),
             timeout=0.05
         )
-        time.sleep(2)  # Wait for Arduino DTR reset
+        time.sleep(1.5)  # Wait for Arduino DTR reset
+        with state_lock:
+            system_state["sensor_mode"] = "REAL"
+            system_state["sensor_port"] = config["sensor_serial_port"]
         print(f"\u2705 Connected to EOG Arduino on {config['sensor_serial_port']}")
     except Exception as e:
         print(f"\u26a0\ufe0f Could not open EOG serial: {e}")
         print("Running in simulated sensor mode.")
+        with state_lock:
+            system_state["sensor_mode"] = "SIMULATED"
         arduino_sensor_serial = None
 
     while True:
@@ -105,8 +113,31 @@ def sensor_acquisition_thread():
         eog_val = 512
         piezo_val = 40
 
+        # Attempt auto-reconnect every 3 seconds if disconnected
+        if not (arduino_sensor_serial and arduino_sensor_serial.is_open):
+            with state_lock:
+                system_state["sensor_mode"] = "SIMULATED"
+            if time.time() - last_reconnect_attempt > 3.0:
+                last_reconnect_attempt = time.time()
+                try:
+                    import serial
+                    arduino_sensor_serial = serial.Serial(
+                        config["sensor_serial_port"],
+                        config.get("sensor_baud_rate", 9600),
+                        timeout=0.05
+                    )
+                    time.sleep(1.5)
+                    with state_lock:
+                        system_state["sensor_mode"] = "REAL"
+                        system_state["sensor_port"] = config["sensor_serial_port"]
+                    print(f"\u2705 Reconnected to EOG Arduino on {config['sensor_serial_port']}")
+                except Exception:
+                    arduino_sensor_serial = None
+
         # Try reading real serial hardware if available
         if arduino_sensor_serial and arduino_sensor_serial.is_open:
+            with state_lock:
+                system_state["sensor_mode"] = "REAL"
             try:
                 # Read command bytes from EOG Arduino
                 while arduino_sensor_serial.in_waiting > 0:
@@ -116,28 +147,26 @@ def sensor_acquisition_thread():
                         with state_lock:
                             if cmd == EOG_CMD_GAZE_LEFT:
                                 system_state["eog_gaze"] = "LEFT"
-                                eog_val = 512 + 180  # Simulate high EOG for telemetry display
+                                eog_val = 512 + 180  # Saccade delta for display
                             elif cmd == EOG_CMD_GAZE_RIGHT:
                                 system_state["eog_gaze"] = "RIGHT"
                                 eog_val = 512 - 180
                             elif cmd == EOG_CMD_GAZE_CENTER:
                                 system_state["eog_gaze"] = "CENTER"
                                 eog_val = 512
-                            elif cmd == EOG_CMD_STOP:
-                                # Double-clench detected by Arduino → STOP
-                                system_state["clench_active"] = True
-                                dispatch_car_command("S", source="EOG Double-Clench STOP")
-                                threading.Timer(0.3, lambda: reset_clench()).start()
+                            elif cmd in (EOG_CMD_STOP, EOG_CMD_GO):
+                                # Jaw clench detected: stop if moving, restart if stopped
                                 piezo_val = 480
-                            elif cmd == EOG_CMD_GO:
-                                # Single-clench detected by Arduino → GO
-                                system_state["clench_active"] = True
-                                if not system_state.get("morse_mode", False):
-                                    dispatch_car_command("F", source="EOG Single-Clench GO")
-                                threading.Timer(0.3, lambda: reset_clench()).start()
-                                piezo_val = 480
-            except Exception:
-                pass
+                                trigger_jaw_clench()
+            except Exception as ser_err:
+                print(f"\u26a0\ufe0f EOG Serial disconnected: {ser_err}")
+                try:
+                    arduino_sensor_serial.close()
+                except Exception:
+                    pass
+                arduino_sensor_serial = None
+                with state_lock:
+                    system_state["sensor_mode"] = "SIMULATED"
         else:
             # High-fidelity realistic biosignal simulation
             # Baseline drift + ECG/EMG micro-jitter
@@ -182,22 +211,27 @@ def sensor_acquisition_thread():
 
 def trigger_jaw_clench():
     now = time.time()
-    # Debounce
     if not hasattr(trigger_jaw_clench, "last_trigger"):
         trigger_jaw_clench.last_trigger = 0
 
-    if now - trigger_jaw_clench.last_trigger > 0.8:
+    if now - trigger_jaw_clench.last_trigger > 0.45:
         trigger_jaw_clench.last_trigger = now
-        system_state["clench_active"] = True
+        with state_lock:
+            system_state["clench_active"] = True
 
-        # Safety Isolation: In Morse communication mode, jaw clench is inhibited from driving the vehicle
-        if system_state.get("morse_mode", False):
-            threading.Timer(0.3, lambda: reset_clench()).start()
-            return
+            # Safety Isolation: In Morse communication mode, jaw clench is inhibited from driving the vehicle
+            if system_state.get("morse_mode", False):
+                threading.Timer(0.3, lambda: reset_clench()).start()
+                return
 
-        # Toggle car forward/stop in normal driving mode
-        new_cmd = "F" if system_state["car_state"] == "STOP" else "S"
-        dispatch_car_command(new_cmd, source="Piezo Jaw-Clench")
+            # Toggle car forward/stop:
+            # If currently stopped -> Restart (FORWARD)
+            # If currently moving (FORWARD, TURNING_LEFT, TURNING_RIGHT, REVERSE) -> STOP
+            is_stopped = (system_state["car_state"] == "STOP")
+            new_cmd = "F" if is_stopped else "S"
+            source_tag = "Jaw-Clench RESTART (GO)" if is_stopped else "Jaw-Clench STOP"
+
+        dispatch_car_command(new_cmd, source=source_tag)
         threading.Timer(0.3, lambda: reset_clench()).start()
 
 
@@ -440,7 +474,9 @@ def get_telemetry():
             "command_log": system_state["command_log"][:10],
             "config": config,
             "morse_mode": system_state.get("morse_mode", False),
-            "morse": morse_decoder.get_state()
+            "morse": morse_decoder.get_state(),
+            "sensor_mode": system_state.get("sensor_mode", "SIMULATED"),
+            "sensor_port": system_state.get("sensor_port", config.get("sensor_serial_port", "/dev/ttyACM0"))
         })
 
 

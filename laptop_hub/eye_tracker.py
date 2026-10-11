@@ -58,6 +58,12 @@ class EyeTracker:
         self.gaze_ratio = 0.50
         self.face_detected = False
 
+        # Configurable Gaze Calibration Parameters
+        self.neutral_gaze_ratio = 0.50         # User neutral gaze ratio (calibrated center)
+        self.gaze_deadband = 0.08              # Deadband around neutral (+/- 0.08 = center)
+        self.gaze_left_thresh = 0.42           # Derived or direct threshold for LEFT
+        self.gaze_right_thresh = 0.58          # Derived or direct threshold for RIGHT
+
         # Configurable Blink Detection & Adaptive Calibration Parameters
         self.calibration_samples_required = 30 # Number of valid open-eye frames needed (~1 sec @ 30fps)
         self.calibration_samples = []
@@ -90,6 +96,40 @@ class EyeTracker:
         self.last_completed_blink_duration = 0.0
         self.blink_event_start = False
         self.blink_event_end = False
+
+    def calibrate_center(self):
+        """Locks current smoothed gaze ratio as user's neutral center look."""
+        self.neutral_gaze_ratio = round(float(self.gaze_ratio), 3)
+        self._update_gaze_thresholds()
+        self.reset_calibration() # Also re-calibrates open eye brightness
+        print(f"[AI] Calibrated center gaze baseline: {self.neutral_gaze_ratio:.3f}")
+        return {
+            "neutral_gaze_ratio": self.neutral_gaze_ratio,
+            "left_thresh": self.gaze_left_thresh,
+            "right_thresh": self.gaze_right_thresh
+        }
+
+    def _update_gaze_thresholds(self):
+        """Updates left and right detection boundaries based on neutral baseline & deadband."""
+        self.gaze_left_thresh = round(self.neutral_gaze_ratio - self.gaze_deadband, 3)
+        self.gaze_right_thresh = round(self.neutral_gaze_ratio + self.gaze_deadband, 3)
+
+    def set_parameters(self, deadband=None, close_ratio=None, open_baseline=None, ear_close=None):
+        """Allows direct adjustment of sensitivity and thresholds."""
+        if deadband is not None:
+            self.gaze_deadband = max(0.03, min(0.18, float(deadband)))
+            self._update_gaze_thresholds()
+        if close_ratio is not None:
+            self.close_ratio = max(0.40, min(0.85, float(close_ratio)))
+            self.contrast_close_thresh = max(10.0, round(self.open_baseline_contrast * self.close_ratio, 1))
+            self.contrast_open_thresh = max(self.contrast_close_thresh + 2.0, round(self.open_baseline_contrast * (self.close_ratio + 0.15), 1))
+        if open_baseline is not None:
+            self.open_baseline_contrast = max(15.0, float(open_baseline))
+            self.contrast_close_thresh = max(10.0, round(self.open_baseline_contrast * self.close_ratio, 1))
+            self.contrast_open_thresh = max(self.contrast_close_thresh + 2.0, round(self.open_baseline_contrast * self.open_ratio, 1))
+        if ear_close is not None:
+            self.ear_close_thresh = float(ear_close)
+            self.ear_open_thresh = self.ear_close_thresh + 0.05
 
     def reset_calibration(self):
         """Safely resets open-eye contrast calibration baseline."""
@@ -288,10 +328,10 @@ class EyeTracker:
                     avg_eye_ratio = sum(eye_ratios) / len(eye_ratios)
                     self.gaze_ratio = self.gaze_ratio * 0.65 + avg_eye_ratio * 0.35
 
-                    # Gaze decision (mirrored display)
-                    if self.gaze_ratio > 0.58:
+                    # Gaze decision based on calibrated neutral center and deadband
+                    if self.gaze_ratio > self.gaze_right_thresh:
                         detected_gaze = "RIGHT"
-                    elif self.gaze_ratio < 0.42:
+                    elif self.gaze_ratio < self.gaze_left_thresh:
                         detected_gaze = "LEFT"
                     else:
                         detected_gaze = "CENTER"

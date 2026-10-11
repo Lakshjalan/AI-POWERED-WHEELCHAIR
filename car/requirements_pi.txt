@@ -1,0 +1,17 @@
+# OcuSteer — Raspberry Pi Car Server Requirements
+# Install on the Raspberry Pi with:
+#   pip3 install -r requirements_pi.txt
+
+flask>=2.0
+opencv-contrib-python-headless>=4.5   # includes DNN module for MobileNet SSD
+numpy>=1.21
+requests>=2.25
+
+# Pi Camera Module (ribbon connector) support — Raspberry Pi OS Bullseye+
+# Install via apt first: sudo apt install -y python3-picamera2
+# picamera2 is pre-installed on Raspberry Pi OS 11+ (Bullseye) and 12 (Bookworm)
+# Uncomment the line below if you're installing into a venv on the Pi:
+# picamera2>=0.3
+
+# Arduino serial bridge
+pyserial>=3.5

@@ -490,7 +490,66 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 9. Configuration Modal Handlers
+  // 9. Configuration Modal Handlers & Eye Tracking Calibration
+  const btnCalibrateEye = document.getElementById("btn-calibrate-eye");
+  const btnModalCalibrate = document.getElementById("btn-modal-calibrate");
+  const sliderDeadband = document.getElementById("cfg-gaze-deadband");
+  const valDeadbandDisp = document.getElementById("val-deadband-disp");
+  const sliderBlinkRatio = document.getElementById("cfg-blink-ratio");
+  const valBlinkRatioDisp = document.getElementById("val-blink-ratio-disp");
+
+  if (sliderDeadband && valDeadbandDisp) {
+    sliderDeadband.addEventListener("input", (e) => {
+      valDeadbandDisp.textContent = `\u00B1${parseFloat(e.target.value).toFixed(2)}`;
+    });
+  }
+
+  if (sliderBlinkRatio && valBlinkRatioDisp) {
+    sliderBlinkRatio.addEventListener("input", (e) => {
+      valBlinkRatioDisp.textContent = parseFloat(e.target.value).toFixed(2);
+    });
+  }
+
+  async function triggerCalibration() {
+    const activeBtn = btnCalibrateEye || btnModalCalibrate;
+    if (activeBtn) {
+      activeBtn.disabled = true;
+      activeBtn.textContent = "\u2299 CALIBRATING...";
+    }
+    try {
+      const resp = await fetch("/api/calibrate", { method: "POST" });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (activeBtn) activeBtn.textContent = "\u2713 CALIBRATED!";
+        setTimeout(() => {
+          if (btnCalibrateEye) {
+            btnCalibrateEye.disabled = false;
+            btnCalibrateEye.textContent = "\u2299 CALIBRATE";
+          }
+          if (btnModalCalibrate) {
+            btnModalCalibrate.disabled = false;
+            btnModalCalibrate.textContent = "\u2299 CALIBRATE CENTER NOW";
+          }
+        }, 1800);
+      } else {
+        throw new Error("Server error");
+      }
+    } catch (err) {
+      alert("Calibration failed: " + err.message);
+      if (btnCalibrateEye) {
+        btnCalibrateEye.disabled = false;
+        btnCalibrateEye.textContent = "\u2299 CALIBRATE";
+      }
+      if (btnModalCalibrate) {
+        btnModalCalibrate.disabled = false;
+        btnModalCalibrate.textContent = "\u2299 CALIBRATE CENTER NOW";
+      }
+    }
+  }
+
+  if (btnCalibrateEye) btnCalibrateEye.addEventListener("click", triggerCalibration);
+  if (btnModalCalibrate) btnModalCalibrate.addEventListener("click", triggerCalibration);
+
   btnOpenConfig.addEventListener("click", () => configModal.classList.add("open"));
   btnCloseConfig.addEventListener("click", () => configModal.classList.remove("open"));
 
@@ -500,7 +559,9 @@ document.addEventListener("DOMContentLoaded", () => {
       car_port: parseInt(document.getElementById("cfg-car-port").value, 10),
       ai_autopilot_enabled: document.getElementById("cfg-ai-enabled").checked,
       clench_trigger_enabled: document.getElementById("cfg-clench-enabled").checked,
-      blink_trigger_enabled: document.getElementById("cfg-blink-enabled").checked
+      blink_trigger_enabled: document.getElementById("cfg-blink-enabled").checked,
+      gaze_deadband: sliderDeadband ? parseFloat(sliderDeadband.value) : 0.08,
+      blink_close_ratio: sliderBlinkRatio ? parseFloat(sliderBlinkRatio.value) : 0.65
     };
 
     try {

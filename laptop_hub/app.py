@@ -32,8 +32,9 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 
 # System configuration & shared state
 config = {
-    "car_ip": "192.168.1.100",  # Set to Raspberry Pi IP
-    "car_port": 5001,
+    "car_ip": "10.252.125.1",  # Raspberry Pi IP
+    "car_port": 5000,          # camera_stream.py runs on port 5000 (or 5001)
+    "car_camera_endpoint": "/video", # camera_stream.py endpoint (/video or /video_feed)
     "sensor_serial_port": "/dev/ttyACM0",
     "ai_autopilot_enabled": True,
     "blink_trigger_enabled": True,
@@ -281,42 +282,65 @@ def generate_driver_stream():
 
 
 def generate_car_fpv_stream():
-    """Streams FPV video from the car's Raspberry Pi, or falls back to simulated rover feed."""
-    car_stream_url = f"http://{config['car_ip']}:{config['car_port']}/video_feed"
-
+    """Streams FPV video from the car's Raspberry Pi camera, or falls back to simulated rover feed.
+    The Pi runs camera_stream.py (/video) or pi_car_server.py (/video_feed)."""
     while True:
-        # Try proxying real car stream
-        try:
-            req = requests.get(car_stream_url, stream=True, timeout=1.0)
-            for chunk in req.iter_content(chunk_size=1024):
-                if chunk:
-                    yield chunk
-        except Exception:
-            # Fallback: render realistic rover FPV test HUD
-            sim_frame = np.zeros((360, 640, 3), dtype=np.uint8)
+        # Determine candidate URLs based on configuration
+        endpoint = config.get("car_camera_endpoint", "/video").strip()
+        primary_url = f"http://{config['car_ip']}:{config['car_port']}{endpoint}"
+        alt_endpoints = ["/video", "/video_feed"]
+        candidate_urls = [primary_url] + [
+            f"http://{config['car_ip']}:{config['car_port']}{alt}"
+            for alt in alt_endpoints if alt != endpoint
+        ]
+
+        stream_ok = False
+        for url in candidate_urls:
+            try:
+                req = requests.get(url, stream=True, timeout=1.5)
+                if req.status_code == 200:
+                    with state_lock:
+                        system_state["car_connected"] = True
+                    for chunk in req.iter_content(chunk_size=1024):
+                        if chunk:
+                            yield chunk
+                    stream_ok = True
+                    break
+            except Exception:
+                continue
+
+        if not stream_ok:
+            # Fallback: render standby HUD while Pi is not reachable
+            sim_frame = np.zeros((480, 640, 3), dtype=np.uint8)
             sim_frame[:, :] = (15, 20, 28)
 
             # Draw HUD grid & horizon
-            for y in range(0, 360, 30):
+            for y in range(0, 480, 30):
                 cv2.line(sim_frame, (0, y), (640, y), (30, 40, 55), 1)
             for x in range(0, 640, 40):
-                cv2.line(sim_frame, (x, 0), (x, 360), (30, 40, 55), 1)
+                cv2.line(sim_frame, (x, 0), (x, 480), (30, 40, 55), 1)
 
             # Center target crosshair
-            cx, cy = 320, 180
-            cv2.circle(sim_frame, (cx, cy), 35, (0, 240, 255), 1)
-            cv2.line(sim_frame, (cx - 50, cy), (cx + 50, cy), (0, 240, 255), 1)
-            cv2.line(sim_frame, (cx, cy - 50), (cx, cy + 50), (0, 240, 255), 1)
+            cx, cy = 320, 240
+            cv2.circle(sim_frame, (cx, cy), 40, (0, 240, 255), 1)
+            cv2.line(sim_frame, (cx - 60, cy), (cx + 60, cy), (0, 240, 255), 1)
+            cv2.line(sim_frame, (cx, cy - 60), (cx, cy + 60), (0, 240, 255), 1)
 
-            # Heading & state
+            # Status info
             state_text = system_state["car_state"]
             dist_text = f"{system_state['ultrasonic_distance']} CM"
-            cv2.putText(sim_frame, "CAR CAMERA FPV [STANDBY / LOCAL TEST]", (20, 35),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 200), 2)
-            cv2.putText(sim_frame, f"STATUS: {state_text}  |  RADAR: {dist_text}", (20, 70),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-            cv2.putText(sim_frame, f"TARGET PI: http://{config['car_ip']}:{config['car_port']}", (20, 335),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (100, 140, 180), 1)
+
+            cv2.putText(sim_frame, "ROVER PI CAMERA — CONNECTING…", (20, 38),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.70, (0, 220, 255), 2)
+            cv2.putText(sim_frame, f"STATUS: {state_text}  |  RADAR: {dist_text}", (20, 72),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.60, (200, 200, 200), 1)
+            cv2.putText(sim_frame, "Target endpoint: camera_stream.py (/video)", (20, 108),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.50, (120, 160, 200), 1)
+            cv2.putText(sim_frame, "Front Rover Picamera2 Live View", (20, 136),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.50, (120, 160, 200), 1)
+            cv2.putText(sim_frame,
+                        f"Listening on:  {primary_url}", (20, 460),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.44, (80, 120, 160), 1)
 
             _, buf = cv2.imencode('.jpg', sim_frame)
             frame_bytes = buf.tobytes()
@@ -367,7 +391,16 @@ def get_telemetry():
             "command_log": system_state["command_log"][:10],
             "config": config,
             "morse_mode": system_state.get("morse_mode", False),
-            "morse": morse_decoder.get_state()
+            "morse": morse_decoder.get_state(),
+            "eye_calibration": {
+                "neutral_gaze_ratio": eye_tracker.neutral_gaze_ratio,
+                "deadband": eye_tracker.gaze_deadband,
+                "left_thresh": eye_tracker.gaze_left_thresh,
+                "right_thresh": eye_tracker.gaze_right_thresh,
+                "open_baseline": round(eye_tracker.open_baseline_contrast, 1),
+                "close_ratio": eye_tracker.close_ratio,
+                "ear_close_thresh": eye_tracker.ear_close_thresh
+            }
         })
 
 
@@ -452,7 +485,25 @@ def update_config():
     for k, v in data.items():
         if k in config:
             config[k] = v
+            
+    # Apply gaze & blink parameters directly to eye_tracker if provided
+    eye_tracker.set_parameters(
+        deadband=data.get("gaze_deadband"),
+        close_ratio=data.get("blink_close_ratio"),
+        ear_close=data.get("ear_close_thresh")
+    )
     return jsonify({"status": "ok", "config": config})
+
+
+@app.route('/api/calibrate', methods=['POST'])
+def calibrate_eye_tracker():
+    """Calibrates neutral center gaze position and resets open eye baseline."""
+    res = eye_tracker.calibrate_center()
+    return jsonify({
+        "status": "ok",
+        "message": "Center gaze and eye contrast calibrated successfully",
+        "calibration": res
+    })
 
 
 if __name__ == '__main__':

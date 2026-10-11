@@ -126,6 +126,7 @@
                   <span class="font-mono pip-gaze-text" id="pip-gaze-readout">CENTER</span>
                 </div>
                 <div class="pip-bottom-row">
+                  <button class="pip-cam-btn font-mono" id="btn-calibrate-eye" title="Look straight and click to calibrate neutral center gaze & open eyes">&#x2299; CALIBRATE</button>
                   <button class="pip-cam-btn font-mono" id="btn-toggle-cam">&#x21BA; CAM</button>
                 </div>
               </div>
@@ -374,6 +375,31 @@
             <span class="switch-pill"></span>
           </label>
           <span class="toggle-text">Enable Double-Blink GO/STOP Toggle</span>
+        </div>
+
+        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.1);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #00f0ff;">Eye Tracking Calibration</span>
+            <button type="button" class="pill-btn font-mono" id="btn-modal-calibrate" style="padding: 4px 10px; font-size: 0.75rem;">&#x2299; CALIBRATE CENTER NOW</button>
+          </div>
+
+          <div class="field-group">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
+              <label for="cfg-gaze-deadband" class="field-label" style="margin: 0;">Gaze Deadband (Center Zone Width)</label>
+              <span class="font-mono" id="val-deadband-disp" style="color: #00f0ff;">&plusmn;0.08</span>
+            </div>
+            <input type="range" id="cfg-gaze-deadband" min="0.04" max="0.16" step="0.01" value="0.08" style="width: 100%; accent-color: #00f0ff;">
+            <small style="color: #8e9192; font-size: 0.72rem;">Smaller = faster left/right response; Larger = more stable center.</small>
+          </div>
+
+          <div class="field-group" style="margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
+              <label for="cfg-blink-ratio" class="field-label" style="margin: 0;">Blink Sensitivity (Closure Threshold)</label>
+              <span class="font-mono" id="val-blink-ratio-disp" style="color: #00f0ff;">0.65</span>
+            </div>
+            <input type="range" id="cfg-blink-ratio" min="0.45" max="0.80" step="0.02" value="0.65" style="width: 100%; accent-color: #00f0ff;">
+            <small style="color: #8e9192; font-size: 0.72rem;">Higher = easier to trigger blinks; Lower = prevents accidental blinks.</small>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
